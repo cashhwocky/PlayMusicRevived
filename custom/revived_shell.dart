@@ -1945,6 +1945,17 @@ class _RevivedPlaylistPageState extends State<RevivedPlaylistPage> {
           foregroundColor: Colors.white,
           title: Text(name),
           actions: [
+          IconButton(
+            icon: const Icon(Icons.download_for_offline_outlined, color: Colors.white),
+            tooltip: 'Download playlist',
+            onPressed: () {
+              if (tracks.isEmpty) return;
+              OfflineStore.downloadAll(tracks);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Downloading ${tracks.length} songs...')),
+              );
+            },
+          ),
             IconButton(
               icon: const Icon(Icons.shuffle),
               onPressed: () {
