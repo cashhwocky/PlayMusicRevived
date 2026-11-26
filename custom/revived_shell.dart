@@ -210,16 +210,21 @@ void _openGpmPlayer(BuildContext context) {
   Navigator.of(context).push(
     PageRouteBuilder<void>(
       opaque: false,
-      barrierColor: Colors.black54,
-      transitionDuration: const Duration(milliseconds: 340),
-      reverseTransitionDuration: const Duration(milliseconds: 300),
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 280),
+      reverseTransitionDuration: const Duration(milliseconds: 240),
       pageBuilder: (_, __, ___) => const RevivedPlayerScreen(),
       transitionsBuilder: (_, anim, __, child) {
-        final forward = CurvedAnimation(parent: anim, curve: Curves.fastOutSlowIn);
-        final reverse = CurvedAnimation(parent: anim, curve: Curves.easeInCubic);
-        final activeCurve = anim.status == AnimationStatus.reverse ? reverse : forward;
+        final curved = CurvedAnimation(
+          parent: anim,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
         return SlideTransition(
-          position: Tween<Offset>(begin: const Offset(0.0, 1.0), end: Offset.zero).animate(activeCurve),
+          position: Tween<Offset>(
+            begin: const Offset(0.0, 1.0),
+            end: Offset.zero,
+          ).animate(curved),
           child: child,
         );
       },
@@ -1351,7 +1356,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
     final t = audioHandler.currentTrack;
     if (t == null) return const SizedBox.shrink();
     return GestureDetector(
-      onTap: () => openPlayer(context),
+      onTap: () => _openGpmPlayer(context),
       
       child: Container(
         decoration: BoxDecoration(
@@ -1436,18 +1441,24 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
       builder: (context, _) {
         final track = audioHandler.currentTrack;
         return Scaffold(
-          backgroundColor: const Color(0xFFFFFFFF),
+          backgroundColor: Colors.transparent,
           body: GestureDetector(
             onVerticalDragUpdate: (d) {
               if (d.delta.dy < 0 && _dragY <= 0) return;
               setState(() {
                 _draggingY = true;
-                _dragY = (_dragY + d.delta.dy).clamp(0.0, 420.0);
+                _dragY = (_dragY + d.delta.dy).clamp(0.0, MediaQuery.of(context).size.height);
               });
             },
             onVerticalDragEnd: (d) {
-              if (_dragY > 110 || (d.primaryVelocity ?? 0) > 650) {
-                Navigator.of(context).pop();
+              if (_dragY > 100 || (d.primaryVelocity ?? 0) > 550) {
+                setState(() {
+                  _draggingY = false;
+                  _dragY = MediaQuery.of(context).size.height;
+                });
+                Future.delayed(const Duration(milliseconds: 200), () {
+                  if (mounted) Navigator.of(context).pop();
+                });
               } else {
                 setState(() {
                   _draggingY = false;
