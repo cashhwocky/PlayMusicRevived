@@ -24,6 +24,77 @@ Color get _gpmArtBg => _gpmDark ? const Color(0xFF303030) : const Color(0xFFE0E0
 Color get _gpmArtCircle => _gpmDark ? const Color(0xFF525252) : const Color(0xFF9E9E9E);
 
 YtAlbumPage? _memLikedPage;
+
+Widget _gpmSecondaryMiniPlayer(BuildContext context) {
+  return ValueListenableBuilder<int>(
+    valueListenable: audioHandler.currentIndex,
+    builder: (context, _, __) {
+      final track = audioHandler.currentTrack;
+      if (track == null) return const SizedBox.shrink();
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          if (!_gpmShouldSuppressPlayer()) _openGpmPlayer(context);
+        },
+        onHorizontalDragEnd: (d) {
+          final v = d.primaryVelocity ?? 0.0;
+          if (v < -250) {
+            audioHandler.skipToNext();
+          } else if (v > 250) {
+            audioHandler.skipToPreviousTrack();
+          }
+        },
+        child: Material(
+          color: const Color(0xFFFFFFFF),
+          elevation: 6,
+          child: SafeArea(
+            top: false,
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFFFF),
+                border: Border(top: BorderSide(color: _gpmDivider, width: 1)),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: SizedBox(width: 44, height: 44, child: CustomAlbumArtwork(track: track)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: _gpmText, fontSize: 14, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 2),
+                        Text(track.artist, maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: _gpmSub, fontSize: 12.5)),
+                      ],
+                    ),
+                  ),
+                  StreamBuilder<PlaybackState>(
+                    stream: audioHandler.playbackState,
+                    builder: (_, snap) {
+                      final playing = snap.data?.playing ?? audioHandler.player.playing;
+                      return IconButton(
+                        icon: Icon(playing ? Icons.pause : Icons.play_arrow, color: _gpmOrange, size: 28),
+                        onPressed: () => playing ? audioHandler.pause() : audioHandler.play(),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
 Widget _gpm2017RepoLink(BuildContext context) {
   return Padding(
     padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -1659,6 +1730,7 @@ class _RevivedAlbumPageState extends State<RevivedAlbumPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _gpmBg,
+      bottomNavigationBar: _gpmSecondaryMiniPlayer(context),
       appBar: AppBar(backgroundColor: _gpmOrange, foregroundColor: Colors.white, title: Text(widget.initialTitle ?? 'Album')),
       body: FutureBuilder<YtAlbumPage>(
         future: _future,
@@ -1743,6 +1815,7 @@ class _RevivedArtistPageState extends State<RevivedArtistPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _gpmBg,
+      bottomNavigationBar: _gpmSecondaryMiniPlayer(context),
       appBar: AppBar(backgroundColor: _gpmOrange, foregroundColor: Colors.white, title: Text(widget.name)),
       body: FutureBuilder<YtArtistPage>(
         future: _future,
@@ -1854,6 +1927,7 @@ class _RevivedPlaylistPageState extends State<RevivedPlaylistPage> {
         if (page == null) {
           return Scaffold(
             backgroundColor: _gpmBg,
+      bottomNavigationBar: _gpmSecondaryMiniPlayer(context),
             appBar: AppBar(backgroundColor: _gpmOrange, foregroundColor: Colors.white, title: Text(widget.title ?? 'Playlist')),
             body: const Center(child: CircularProgressIndicator(color: _gpmOrange)),
           );
@@ -1865,6 +1939,7 @@ class _RevivedPlaylistPageState extends State<RevivedPlaylistPage> {
 
   Widget _buildList(String name, List<TrackItem> tracks) => Scaffold(
         backgroundColor: _gpmBg,
+      bottomNavigationBar: _gpmSecondaryMiniPlayer(context),
         appBar: AppBar(
           backgroundColor: _gpmOrange,
           foregroundColor: Colors.white,
@@ -2023,6 +2098,7 @@ class RevivedSettingsScreen extends StatelessWidget {
               Divider(height: 1, color: _gpmDivider),
               ListTile(
                 title: Text('Re-run setup', style: TextStyle(color: _gpmText, fontSize: 15.5)),
+              _gpm2017RepoLink(context),
                 onTap: () {
                   appState.setB('setup_done', false);
                   Navigator.of(context).pushAndRemoveUntil(_gpmActivityRoute(const RevivedSetupScreen()), (_) => false);
