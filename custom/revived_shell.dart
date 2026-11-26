@@ -645,6 +645,240 @@ Widget _gpmNetArt(String? url, {double? size, bool isArtist = false}) {
   return _gpmPlaceholder(iconSize: (size ?? 120) * 0.34, isArtist: isArtist);
 }
 
+/// Bigger artwork for the large 2018 cards (YouTube Music hands out tiny thumbs).
+String? _gpmHiRes(String? url) {
+  if (url == null || url.isEmpty) return url;
+  if (url.contains('googleusercontent.com') || url.contains('ggpht.com')) {
+    return url.replaceAll(RegExp(r'=w\d+-h\d+'), '=w800-h800').replaceAll(RegExp(r'=s\d+'), '=s800');
+  }
+  return url;
+}
+
+/// Everything you've played (YouTube Music and local), newest first. Persisted.
+class _GpmRecents {
+  static const _key = 'gpm_recents_v1';
+  static const _max = 60;
+  static final ValueNotifier<int> revision = ValueNotifier(0);
+  static final List<Map<String, dynamic>> _items = [];
+  static bool _loaded = false;
+
+  static void load() {
+    if (_loaded) return;
+    _loaded = true;
+    try {
+      final raw = jsonDecode(appState.str(_key, '[]'));
+      if (raw is List) {
+        for (final e in raw) {
+          if (e is Map) _items.add(Map<String, dynamic>.from(e));
+        }
+      }
+    } catch (_) {}
+  }
+
+  static String _idOf(Map<String, dynamic> m) =>
+      m['local'] != null ? m['local'].toString() : 'yt_${m['videoId']}';
+
+  static void record(TrackItem? t) {
+    if (t == null) return;
+    load();
+    final entry = t.isYouTube ? t.toYtJson() : <String, dynamic>{'local': t.id};
+    final id = t.isYouTube ? 'yt_${t.ytVideoId}' : t.id;
+    if (_items.isNotEmpty && _idOf(_items.first) == id) return;
+    _items.removeWhere((m) => _idOf(m) == id);
+    _items.insert(0, entry);
+    if (_items.length > _max) _items.removeRange(_max, _items.length);
+    try {
+      appState.setStr(_key, jsonEncode(_items));
+    } catch (_) {}
+    revision.value++;
+  }
+
+  static List<TrackItem> tracks() {
+    load();
+    final out = <TrackItem>[];
+    for (var i = 0; i < _items.length; i++) {
+      final m = _items[i];
+      final local = m['local'];
+      final t = local != null ? audioHandler.trackById(local.toString()) : TrackItem.fromYtJson(m, i);
+      if (t != null) out.add(t);
+    }
+    return out;
+  }
+}
+
+/// Round orange play button (the 2018 FAB).
+Widget _gpmOrangeFab(VoidCallback onTap, {double size = 56}) => Material(
+      color: _gpmOrange,
+      shape: const CircleBorder(),
+      elevation: 6,
+      shadowColor: const Color(0x66000000),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(width: size, height: size, child: Icon(Icons.play_arrow, color: Colors.white, size: size * 0.56)),
+      ),
+    );
+
+/// Big image on top, white info card below, orange play button sitting on the
+/// seam. Everything lives in one box so the button is never cut off.
+Widget _gpmHeroHeader({
+  required double heroHeight,
+  required Widget image,
+  required Widget body,
+  required VoidCallback onPlay,
+}) {
+  return Stack(
+    clipBehavior: Clip.none,
+    children: [
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: heroHeight,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                image,
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: [0.0, 0.3, 1.0],
+                      colors: [Color(0x73000000), Colors.transparent, Colors.transparent],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Material(color: _gpmWhite, elevation: 1, child: body),
+        ],
+      ),
+      Positioned(right: 20, top: heroHeight - 28, child: _gpmOrangeFab(onPlay)),
+    ],
+  );
+}
+
+Widget _gpmLoadingScaffold(BuildContext context, String title, {String? error}) => Scaffold(
+      backgroundColor: _gpmBg,
+      bottomNavigationBar: _gpmSecondaryMiniPlayer(context),
+      appBar: AppBar(
+        backgroundColor: _gpmWhite,
+        foregroundColor: _gpmText,
+        surfaceTintColor: Colors.transparent,
+        elevation: 2,
+        title: Text(title, style: TextStyle(color: _gpmText, fontSize: 20, fontWeight: FontWeight.w500)),
+      ),
+      body: Center(
+        child: error == null
+            ? const CircularProgressIndicator(color: _gpmOrange)
+            : Text(error, style: TextStyle(color: _gpmSub)),
+      ),
+    );
+
+/// Detail page with a hero image: the back arrow floats over the picture and a
+/// white top bar with the title fades in as you scroll past it.
+class _GpmHeroScaffold extends StatefulWidget {
+  final String title;
+  final double heroHeight;
+  final List<Widget> slivers;
+  const _GpmHeroScaffold({required this.title, required this.heroHeight, required this.slivers});
+  @override
+  State<_GpmHeroScaffold> createState() => _GpmHeroScaffoldState();
+}
+
+class _GpmHeroScaffoldState extends State<_GpmHeroScaffold> {
+  final ScrollController _ctrl = ScrollController();
+  final ValueNotifier<double> _t = ValueNotifier(0.0);
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl.addListener(() {
+      final top = MediaQuery.of(context).padding.top;
+      final start = widget.heroHeight - kToolbarHeight - top - 48;
+      final v = ((_ctrl.offset - start) / 48).clamp(0.0, 1.0);
+      if (v != _t.value) _t.value = v;
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _t.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.of(context).padding.top;
+    return Scaffold(
+      backgroundColor: _gpmBg,
+      bottomNavigationBar: _gpmSecondaryMiniPlayer(context),
+      body: Stack(
+        children: [
+          CustomScrollView(
+            controller: _ctrl,
+            slivers: [
+              ...widget.slivers,
+              const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
+            ],
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: ValueListenableBuilder<double>(
+              valueListenable: _t,
+              builder: (context, t, _) {
+                final fg = Color.lerp(Colors.white, _gpmText, t)!;
+                return AnnotatedRegion<SystemUiOverlayStyle>(
+                  value: ((t > 0.5 && !_gpmDark) ? SystemUiOverlayStyle.dark : SystemUiOverlayStyle.light)
+                      .copyWith(statusBarColor: Colors.transparent),
+                  child: Material(
+                    color: _gpmWhite.withOpacity(t),
+                    elevation: t >= 1.0 ? 3 : 0,
+                    shadowColor: const Color(0x40000000),
+                    child: Padding(
+                      padding: EdgeInsets.only(top: top),
+                      child: SizedBox(
+                        height: kToolbarHeight,
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                Icons.arrow_back,
+                                color: fg,
+                                shadows: t < 0.5 ? const [Shadow(color: Color(0x99000000), blurRadius: 8)] : null,
+                              ),
+                              onPressed: () => Navigator.of(context).maybePop(),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Opacity(
+                                opacity: t,
+                                child: Text(widget.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(color: _gpmText, fontSize: 20, fontWeight: FontWeight.w500)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Classic Play Music Orange Brand Mark
 class RevivedBrandMark extends StatelessWidget {
   final double size;
@@ -984,7 +1218,8 @@ class RevivedAppShell extends StatefulWidget {
 
 class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final TabController _tabCtrl;
-  int _drawerIndex = 1; // 0 = Listen Now (YTM Home), 1 = Music library (default, matches 27.png)
+  // 2018 bottom tab bar: 0 = Home, 1 = Recents, 2 = Library, 3 = Browse
+  int _tab = 0;
   bool _searchMode = false;
   final TextEditingController _searchCtrl = TextEditingController();
   Timer? _debounce;
@@ -1007,6 +1242,54 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
     _ytPlFuture = YouTubeMusic.libraryPlaylists();
     _preloadLiked();
     appState.setB('update_check', false);
+    _GpmRecents.load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _GpmRecents.record(audioHandler.currentTrack));
+    audioHandler.currentIndex.addListener(_onTrackChanged);
+  }
+
+  void _onTrackChanged() => _GpmRecents.record(audioHandler.currentTrack);
+
+  void _selectTab(int i) {
+    setState(() {
+      _tab = i;
+      if (_searchMode) {
+        _searchMode = false;
+        _searchCtrl.clear();
+        _songRes = [];
+        _artistRes = [];
+        _albumRes = [];
+      }
+    });
+  }
+
+  void _startSearch(String q) {
+    setState(() {
+      _searchMode = true;
+      _searchCtrl.text = q;
+    });
+    _runSearch(q);
+  }
+
+  void _openShelfItem(YtShelfItem it) {
+    if (it.kind == 'album') {
+      Navigator.of(context).push(_gpmActivityRoute(RevivedAlbumPage(url: it.id, initialTitle: it.title, initialThumb: it.thumbnail)));
+    } else if (it.kind == 'artist') {
+      Navigator.of(context).push(_gpmActivityRoute(RevivedArtistPage(url: it.id, name: it.title, initialThumb: it.thumbnail)));
+    } else if (it.kind == 'playlist') {
+      Navigator.of(context).push(_gpmActivityRoute(RevivedPlaylistPage.youtube(playlistId: it.id, title: it.title, thumbnail: it.thumbnail)));
+    } else {
+      audioHandler.playYouTubeTrack(YouTubeMusic.trackFromShelf(it, it.subtitle));
+      _openGpmPlayer(context);
+    }
+  }
+
+  void _playShelfItem(YtShelfItem it) {
+    if (it.kind == 'song' || it.kind == 'video') {
+      audioHandler.playYouTubeTrack(YouTubeMusic.trackFromShelf(it, it.subtitle));
+      _openGpmPlayer(context);
+    } else {
+      _openShelfItem(it);
+    }
   }
 
   Future<void> _preloadLiked() async {
@@ -1028,6 +1311,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    audioHandler.currentIndex.removeListener(_onTrackChanged);
     _debounce?.cancel();
     _searchCtrl.dispose();
     _tabCtrl.dispose();
@@ -1076,34 +1360,52 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
     _openGpmPlayer(context);
   }
 
+  String get _tabTitle {
+    switch (_tab) {
+      case 1:
+        return 'Recents';
+      case 2:
+        return 'Music library';
+      case 3:
+        return 'Browse';
+      default:
+        return 'Play Music';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(statusBarColor: _gpmOrangeDark, statusBarIconBrightness: Brightness.light),
-      child: ListenableBuilder(
-        listenable: Listenable.merge([appState, OfflineStore.revision, LibraryStore.revision, audioHandler.currentIndex]),
-        builder: (context, _) {
-          return Scaffold(
+    return ListenableBuilder(
+      listenable: Listenable.merge([appState, OfflineStore.revision, LibraryStore.revision, audioHandler.currentIndex, _GpmRecents.revision]),
+      builder: (context, _) {
+        return PopScope(
+          canPop: !_searchMode && _tab == 0,
+          onPopInvoked: (didPop) {
+            if (didPop) return;
+            if (_searchMode) {
+              _selectTab(_tab);
+            } else {
+              _selectTab(0);
+            }
+          },
+          child: Scaffold(
             backgroundColor: _gpmBg,
             drawer: _buildDrawer(context),
             appBar: AppBar(
-              backgroundColor: _gpmOrange,
-              foregroundColor: Colors.white,
-              elevation: 3,
-              scrolledUnderElevation: 3,
-              shadowColor: const Color(0x33000000),
-              shape: const Border(),
+              backgroundColor: _gpmWhite,
+              foregroundColor: _gpmText,
+              surfaceTintColor: Colors.transparent,
+              elevation: 2,
+              scrolledUnderElevation: 2,
+              shadowColor: const Color(0x40000000),
+              systemOverlayStyle: (_gpmDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+                  .copyWith(statusBarColor: Colors.transparent),
+              iconTheme: IconThemeData(color: _gpmSub),
               titleSpacing: _searchMode ? 0 : NavigationToolbar.kMiddleSpacing,
               leading: _searchMode
                   ? IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => setState(() {
-                        _searchMode = false;
-                        _searchCtrl.clear();
-                        _songRes = [];
-                        _artistRes = [];
-                        _albumRes = [];
-                      }),
+                      icon: Icon(Icons.arrow_back, color: _gpmSub),
+                      onPressed: () => _selectTab(_tab),
                     )
                   : null,
               title: _searchMode
@@ -1112,22 +1414,22 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                       autofocus: true,
                       onChanged: _onSearchChanged,
                       onSubmitted: _runSearch,
-                      style: const TextStyle(color: Colors.white, fontSize: 17),
-                      cursorColor: Colors.white,
-                      decoration: const InputDecoration(
+                      style: TextStyle(color: _gpmText, fontSize: 17),
+                      cursorColor: _gpmOrange,
+                      decoration: InputDecoration(
                         hintText: 'Search music',
-                        hintStyle: TextStyle(color: Colors.white70),
+                        hintStyle: TextStyle(color: _gpmSub),
                         border: InputBorder.none,
                       ),
                     )
                   : Text(
-                      _drawerIndex == 0 ? 'Listen Now' : 'Music library',
-                      style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500),
+                      _tabTitle,
+                      style: TextStyle(color: _gpmText, fontSize: 20, fontWeight: FontWeight.w500),
                     ),
               actions: [
                 if (_searchMode && _searchCtrl.text.isNotEmpty)
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
+                    icon: Icon(Icons.close, color: _gpmSub),
                     onPressed: () {
                       _searchCtrl.clear();
                       _onSearchChanged('');
@@ -1135,23 +1437,24 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                   )
                 else if (!_searchMode)
                   IconButton(
-                    icon: const Icon(Icons.search, color: Colors.white),
+                    icon: Icon(Icons.search, color: _gpmSub),
                     onPressed: () => setState(() => _searchMode = true),
                   ),
               ],
-              bottom: (!_searchMode && _drawerIndex == 1)
+              bottom: (!_searchMode && _tab == 2)
                   ? TabBar(
                       dividerColor: Colors.transparent,
                       dividerHeight: 0,
                       controller: _tabCtrl,
                       isScrollable: true,
                       tabAlignment: TabAlignment.start,
-                      indicatorColor: Colors.white,
+                      indicatorColor: _gpmOrange,
                       indicatorWeight: 3.0,
+                      indicatorSize: TabBarIndicatorSize.tab,
                       splashFactory: InkRipple.splashFactory,
-                      overlayColor: WidgetStateProperty.all(Colors.white.withOpacity(0.24)),
-                      labelColor: Colors.white,
-                      unselectedLabelColor: Colors.white.withOpacity(0.80),
+                      overlayColor: WidgetStateProperty.all(_gpmOrange.withOpacity(0.10)),
+                      labelColor: _gpmOrange,
+                      unselectedLabelColor: _gpmSub,
                       labelStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, letterSpacing: 0.4),
                       tabs: const [
                         Tab(text: 'PLAYLISTS'),
@@ -1168,9 +1471,12 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                 Expanded(
                   child: _searchMode
                       ? _buildSearchBody()
-                      : (_drawerIndex == 0
-                          ? _buildListenNowBody()
-                          : TabBarView(
+                      : IndexedStack(
+                          index: _tab,
+                          children: [
+                            _buildListenNowBody(),
+                            _buildRecentsBody(),
+                            TabBarView(
                               controller: _tabCtrl,
                               children: [
                                 _buildPlaylistsTab(),
@@ -1179,13 +1485,68 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                                 _buildSongsTab(),
                                 _buildGenresTab(),
                               ],
-                            )),
+                            ),
+                            _buildBrowseBody(),
+                          ],
+                        ),
                 ),
                 _buildDockedMiniPlayer(context),
+                _buildBottomNav(),
               ],
             ),
-          );
-        },
+          ),
+        );
+      },
+    );
+  }
+
+  // ── 2018 BOTTOM TAB BAR (Home · Recents · Library · Browse) ──────────────
+  Widget _buildBottomNav() {
+    const items = <(IconData, String)>[
+      (Icons.home, 'Home'),
+      (Icons.history, 'Recents'),
+      (Icons.library_music, 'Library'),
+      (Icons.explore, 'Browse'),
+    ];
+    return Material(
+      color: _gpmWhite,
+      elevation: 8,
+      shadowColor: const Color(0x55000000),
+      child: SafeArea(
+        top: false,
+        child: Container(
+          height: 56,
+          decoration: BoxDecoration(border: Border(top: BorderSide(color: _gpmDivider, width: 0.6))),
+          child: Row(
+            children: [
+              for (var i = 0; i < items.length; i++)
+                Expanded(
+                  child: InkResponse(
+                    onTap: () => _selectTab(i),
+                    highlightShape: BoxShape.rectangle,
+                    containedInkWell: true,
+                    splashColor: _gpmOrange.withOpacity(0.12),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(items[i].$1, size: 24, color: (_tab == i && !_searchMode) ? _gpmOrange : _gpmSub),
+                        const SizedBox(height: 3),
+                        AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 150),
+                          style: TextStyle(
+                            color: (_tab == i && !_searchMode) ? _gpmOrange : _gpmSub,
+                            fontSize: (_tab == i && !_searchMode) ? 12.5 : 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          child: Text(items[i].$2),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1230,18 +1591,20 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                 ),
               ),
             ),
-            _drawerTile(Icons.home_outlined, 'Listen Now', _drawerIndex == 0, () {
-              setState(() {
-                _drawerIndex = 0;
-                _searchMode = false;
-              });
+            _drawerTile(Icons.home, 'Home', _tab == 0, () {
+              _selectTab(0);
               Navigator.pop(context);
             }),
-            _drawerTile(Icons.library_music, 'Music library', _drawerIndex == 1, () {
-              setState(() {
-                _drawerIndex = 1;
-                _searchMode = false;
-              });
+            _drawerTile(Icons.history, 'Recents', _tab == 1, () {
+              _selectTab(1);
+              Navigator.pop(context);
+            }),
+            _drawerTile(Icons.library_music, 'Music library', _tab == 2, () {
+              _selectTab(2);
+              Navigator.pop(context);
+            }),
+            _drawerTile(Icons.explore, 'Browse', _tab == 3, () {
+              _selectTab(3);
               Navigator.pop(context);
             }),
             _drawerTile(Icons.download_done, 'Downloads', false, () {
@@ -1476,71 +1839,335 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
       future: _ytFeedFuture,
       initialData: YouTubeMusic.cachedHomeFeed(),
       builder: (_, snap) {
-        final shelves = snap.data ?? const <YtShelf>[];
+        final shelves = (snap.data ?? const <YtShelf>[]).where((s) => s.items.isNotEmpty).toList();
         if (shelves.isEmpty && snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: _gpmOrange));
         }
         if (shelves.isEmpty) {
           return Center(
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: _gpmOrange, foregroundColor: Colors.white),
-              onPressed: () => setState(() => _searchMode = true),
-              child: const Text('SEARCH YOUTUBE MUSIC'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.home, color: _gpmSub, size: 56),
+                const SizedBox(height: 10),
+                Text('Your recommendations will show up here', style: TextStyle(color: _gpmSub, fontSize: 15)),
+                const SizedBox(height: 14),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: _gpmOrange, foregroundColor: Colors.white),
+                  onPressed: () => setState(() => _searchMode = true),
+                  child: const Text('SEARCH YOUTUBE MUSIC'),
+                ),
+              ],
             ),
           );
         }
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(12, 16, 12, 24),
-          children: [
-            for (final shelf in shelves.take(6)) ...[
-              Padding(
-                padding: const EdgeInsets.only(left: 4, bottom: 10),
-                child: Text(shelf.title.isEmpty ? 'Recommended' : shelf.title,
-                    style: TextStyle(color: _gpmText, fontSize: 18, fontWeight: FontWeight.w500)),
-              ),
-              SizedBox(
-                height: 214,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: shelf.items.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
-                  itemBuilder: (_, i) {
-                    final it = shelf.items[i];
-                    return SizedBox(
-                      width: 152,
-                      child: _gpmSquareCard(
-                        title: it.title,
-                        cover: _gpmNetArt(it.thumbnail, isArtist: it.kind == 'artist'),
-                        onTap: () {
-                          if (it.kind == 'album') {
-                            Navigator.of(context).push(_gpmActivityRoute(RevivedAlbumPage(url: it.id, initialTitle: it.title, initialThumb: it.thumbnail)));
-                          } else if (it.kind == 'artist') {
-                            Navigator.of(context).push(_gpmActivityRoute(RevivedArtistPage(url: it.id, name: it.title, initialThumb: it.thumbnail)));
-                          } else if (it.kind == 'playlist') {
-                            Navigator.of(context).push(_gpmActivityRoute(RevivedPlaylistPage.youtube(playlistId: it.id, title: it.title, thumbnail: it.thumbnail)));
-                          } else {
-                            audioHandler.playYouTubeTrack(YouTubeMusic.trackFromShelf(it, it.subtitle));
-                            _openGpmPlayer(context);
-                          }
-                        },
-                        onPlay: () {
-                          if (it.kind == 'song' || it.kind == 'video') {
-                            audioHandler.playYouTubeTrack(YouTubeMusic.trackFromShelf(it, it.subtitle));
-                            _openGpmPlayer(context);
-                          } else if (it.kind == 'album') {
-                            Navigator.of(context).push(_gpmActivityRoute(RevivedAlbumPage(url: it.id, initialTitle: it.title, initialThumb: it.thumbnail)));
-                          }
+        return RefreshIndicator(
+          color: _gpmOrange,
+          onRefresh: () async {
+            final f = YouTubeMusic.homeFeed(refresh: true);
+            setState(() => _ytFeedFuture = f);
+            try {
+              await f;
+            } catch (_) {}
+          },
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
+            children: [
+              _gpmLuckyCard(shelves),
+              for (var s = 0; s < shelves.length && s < 10; s++) ...[
+                _gpmHomeHeroCard(
+                  eyebrow: shelves[s].title.isEmpty ? 'Recommended for you' : shelves[s].title,
+                  it: shelves[s].items.first,
+                ),
+                if (shelves[s].items.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: SizedBox(
+                      height: 214,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: shelves[s].items.length - 1,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (_, i) {
+                          final it = shelves[s].items[i + 1];
+                          return SizedBox(
+                            width: 152,
+                            child: _gpmSquareCard(
+                              title: it.title,
+                              cover: _gpmNetArt(it.thumbnail, isArtist: it.kind == 'artist'),
+                              onTap: () => _openShelfItem(it),
+                              onPlay: () => _playShelfItem(it),
+                            ),
+                          );
                         },
                       ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 18),
+                    ),
+                  ),
+              ],
             ],
-          ],
+          ),
         );
       },
+    );
+  }
+
+  // Orange "I'm Feeling Lucky" card at the top of Home (2018 style).
+  Widget _gpmLuckyCard(List<YtShelf> shelves) {
+    void play() {
+      final pool = <TrackItem>[];
+      final seen = <String>{};
+      void add(TrackItem t) {
+        if (seen.add(t.id)) pool.add(t);
+      }
+      for (final t in _memLikedPage?.tracks ?? const <TrackItem>[]) {
+        add(t);
+      }
+      for (final sh in shelves) {
+        for (final it in sh.items) {
+          if (it.kind == 'song' || it.kind == 'video') add(YouTubeMusic.trackFromShelf(it, it.subtitle));
+        }
+      }
+      if (pool.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Like a few songs first to get a lucky mix')));
+        return;
+      }
+      pool.shuffle();
+      audioHandler.playYouTubeList(pool.take(50).toList(), 0);
+      _openGpmPlayer(context);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: _gpmOrange,
+        elevation: 2,
+        borderRadius: BorderRadius.circular(2),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: play,
+          child: AspectRatio(
+            aspectRatio: 1.5,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Positioned(
+                  right: -24,
+                  top: -12,
+                  child: Transform.rotate(
+                    angle: -0.25,
+                    child: Icon(Icons.card_giftcard, size: 190, color: Colors.white.withOpacity(0.20)),
+                  ),
+                ),
+                Positioned(
+                  left: 18,
+                  right: 80,
+                  bottom: 18,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("I'm Feeling Lucky",
+                          style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500, height: 1.15)),
+                      Container(width: 32, height: 2, color: Colors.white, margin: const EdgeInsets.symmetric(vertical: 10)),
+                      Text('An instant mix from your thumbs up and recommendations',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 13.5)),
+                    ],
+                  ),
+                ),
+                Positioned(right: 16, bottom: 16, child: _gpmCardPlayButton(play)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Big full-width image card with title over a dark fade (2018 Home).
+  Widget _gpmHomeHeroCard({required String eyebrow, required YtShelfItem it}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: const Color(0xFF212121),
+        elevation: 2,
+        borderRadius: BorderRadius.circular(2),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _openShelfItem(it),
+          child: AspectRatio(
+            aspectRatio: 1.25,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _gpmNetArt(_gpmHiRes(it.thumbnail), isArtist: it.kind == 'artist'),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: [0.35, 1.0],
+                      colors: [Colors.transparent, Color(0xE6000000)],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 18,
+                  right: 80,
+                  bottom: 18,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(eyebrow,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 12.5, fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 4),
+                      Text(it.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white, fontSize: 23, fontWeight: FontWeight.w500, height: 1.15)),
+                      Container(width: 32, height: 2, color: _gpmOrange, margin: const EdgeInsets.symmetric(vertical: 9)),
+                      if (it.subtitle.isNotEmpty)
+                        Text(it.subtitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 13.5)),
+                    ],
+                  ),
+                ),
+                Positioned(right: 16, bottom: 16, child: _gpmCardPlayButton(() => _playShelfItem(it))),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _gpmCardPlayButton(VoidCallback onTap) => Material(
+        color: Colors.white.withOpacity(0.92),
+        shape: const CircleBorder(),
+        elevation: 2,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: const SizedBox(
+            width: 46,
+            height: 46,
+            child: Icon(Icons.play_arrow, color: Color(0xFF616161), size: 28),
+          ),
+        ),
+      );
+
+  // ── RECENTS (everything you've played, newest first) ─────────────────────
+  Widget _buildRecentsBody() {
+    final recent = _GpmRecents.tracks();
+    if (recent.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.history, color: _gpmSub, size: 56),
+            const SizedBox(height: 10),
+            Text('Nothing played yet', style: TextStyle(color: _gpmText, fontSize: 16, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 4),
+            Text('Songs you play show up here', style: TextStyle(color: _gpmSub, fontSize: 13.5)),
+          ],
+        ),
+      );
+    }
+    final cur = audioHandler.currentTrack?.id;
+    return GridView.builder(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 8, mainAxisSpacing: 8, childAspectRatio: 0.78),
+      itemCount: recent.length,
+      itemBuilder: (_, i) {
+        final t = recent[i];
+        return _gpmSquareCard(
+          title: t.title,
+          subtitle: t.artist,
+          cover: _gpmArt(t),
+          badgeIcon: t.id == cur ? Icons.equalizer_rounded : Icons.play_arrow,
+          onTap: () => _playList(recent, i),
+          onPlay: () => _playList(recent, i),
+          onMore: () => showPlayMusicTrackMenu(context, t),
+        );
+      },
+    );
+  }
+
+  // ── BROWSE (charts, new releases, genres & moods) ─────────────────────────
+  static const List<(String, String, IconData, Color)> _browseTop = [
+    ('Top charts', 'top songs this week', Icons.trending_up, Color(0xFFE64A19)),
+    ('New releases', 'new music releases', Icons.new_releases, Color(0xFF1E88E5)),
+  ];
+  static const List<(String, String, IconData, Color)> _browseGenres = [
+    ('Hip-Hop', 'hip hop hits', Icons.mic, Color(0xFF6D4C41)),
+    ('Pop', 'pop hits', Icons.star, Color(0xFFD81B60)),
+    ('Rock', 'rock hits', Icons.bolt, Color(0xFF455A64)),
+    ('R&B / Soul', 'r&b soul hits', Icons.favorite, Color(0xFF8E24AA)),
+    ('Alternative', 'alternative rock', Icons.album, Color(0xFF00897B)),
+    ('Metal', 'metal', Icons.whatshot, Color(0xFF263238)),
+    ('Electronic', 'electronic dance', Icons.graphic_eq, Color(0xFF3949AB)),
+    ('Country', 'country hits', Icons.landscape, Color(0xFFF4511E)),
+    ('Chill', 'chill vibes', Icons.spa, Color(0xFF43A047)),
+    ('Workout', 'workout music', Icons.fitness_center, Color(0xFFE53935)),
+    ('Focus', 'focus music', Icons.headphones, Color(0xFF5E35B1)),
+    ('Party', 'party hits', Icons.celebration, Color(0xFFFB8C00)),
+  ];
+
+  Widget _browseTile((String, String, IconData, Color) g, {double aspect = 1.5}) => Material(
+        color: g.$4,
+        elevation: 2,
+        borderRadius: BorderRadius.circular(2),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _startSearch(g.$2),
+          child: AspectRatio(
+            aspectRatio: aspect,
+            child: Stack(
+              children: [
+                Positioned(right: -10, bottom: -10, child: Icon(g.$3, size: 84, color: Colors.white.withOpacity(0.22))),
+                Positioned(
+                  left: 14,
+                  right: 14,
+                  bottom: 12,
+                  child: Text(g.$1, maxLines: 2, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w500)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+  Widget _buildBrowseBody() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(8, 12, 8, 16),
+      children: [
+        Row(
+          children: [
+            Expanded(child: _browseTile(_browseTop[0], aspect: 1.3)),
+            const SizedBox(width: 8),
+            Expanded(child: _browseTile(_browseTop[1], aspect: 1.3)),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
+          child: Text('Genres & moods', style: TextStyle(color: _gpmText, fontSize: 18, fontWeight: FontWeight.w500)),
+        ),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+          childAspectRatio: 1.5,
+          children: [for (final g in _browseGenres) _browseTile(g)],
+        ),
+      ],
     );
   }
 
@@ -1610,6 +2237,8 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
     double aspectRatio = 1.0,
     bool showMore = true,
     IconData badgeIcon = Icons.play_arrow,
+    String? subtitle,
+    VoidCallback? onMore,
   }) =>
       Material(
         color: _gpmWhite,
@@ -1654,10 +2283,29 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: _gpmText, fontSize: 14, fontWeight: FontWeight.w400)),
+                        child: (subtitle == null || subtitle.isEmpty)
+                            ? Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
+                                style: TextStyle(color: _gpmText, fontSize: 14, fontWeight: FontWeight.w400))
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(color: _gpmText, fontSize: 14, fontWeight: FontWeight.w400)),
+                                  const SizedBox(height: 2),
+                                  Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(color: _gpmSub, fontSize: 12.5)),
+                                ],
+                              ),
                       ),
-                      if (showMore) Icon(Icons.more_vert, color: _gpmSub, size: 18),
+                      if (showMore)
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: onMore,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 0, 2, 6),
+                            child: Icon(Icons.more_vert, color: _gpmSub, size: 18),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -1690,54 +2338,77 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
     );
   }
 
-  // ── CLASSIC WHITE DOCKED MINI-PLAYER (Matches 27.png - 31.png) ────────────
+  // ── WHITE MINI-PLAYER (sits on top of the bottom tab bar) ────────────────
   Widget _buildDockedMiniPlayer(BuildContext context) {
     final t = audioHandler.currentTrack;
     if (t == null) return const SizedBox.shrink();
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () => _openGpmPlayer(context),
-      
+      onHorizontalDragEnd: (d) {
+        final v = d.primaryVelocity ?? 0.0;
+        if (v < -250) {
+          audioHandler.skipToNext();
+        } else if (v > 250) {
+          audioHandler.skipToPreviousTrack();
+        }
+      },
       child: Container(
         decoration: BoxDecoration(
           color: _gpmWhite,
-          boxShadow: [BoxShadow(color: Color(0x24000000), blurRadius: 6, offset: Offset(0, -1))],
+          boxShadow: const [BoxShadow(color: Color(0x24000000), blurRadius: 6, offset: Offset(0, -1))],
         ),
-        child: SafeArea(
-          top: false,
-          child: SizedBox(
-            height: 60,
-            child: Row(
-              children: [
-                const SizedBox(width: 8),
-                SizedBox(width: 46, height: 46, child: _gpmArt(t, size: 46)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmText, fontSize: 15, fontWeight: FontWeight.w400)),
-                      const SizedBox(height: 1),
-                      Text(t.artist.isEmpty ? 'Unknown artist' : t.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmSub, fontSize: 12.5)),
-                    ],
-                  ),
-                ),
-                StreamBuilder<PlaybackState>(
-                  stream: audioHandler.playbackState,
-                  builder: (_, snap) {
-                    final playing = snap.data?.playing ?? audioHandler.player.playing;
-                    return IconButton(
-                      iconSize: 34,
-                      color: _gpmText,
-                      icon: Icon(playing ? Icons.pause : Icons.play_arrow),
-                      onPressed: () => playing ? audioHandler.pause() : audioHandler.play(),
-                    );
-                  },
-                ),
-                const SizedBox(width: 6),
-              ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            StreamBuilder<Duration>(
+              stream: audioHandler.player.positionStream,
+              builder: (_, snap) {
+                final pos = snap.data ?? Duration.zero;
+                final dur = audioHandler.player.duration ?? Duration.zero;
+                final frac = dur.inMilliseconds > 0 ? (pos.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0) : 0.0;
+                return LinearProgressIndicator(
+                  value: frac,
+                  minHeight: 2,
+                  backgroundColor: _gpmDivider,
+                  valueColor: const AlwaysStoppedAnimation(_gpmOrange),
+                );
+              },
             ),
-          ),
+            SizedBox(
+              height: 60,
+              child: Row(
+                children: [
+                  SizedBox(width: 60, height: 60, child: _gpmArt(t, size: 60)),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmText, fontSize: 15, fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 2),
+                        Text(t.artist.isEmpty ? 'Unknown artist' : t.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmSub, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  StreamBuilder<PlaybackState>(
+                    stream: audioHandler.playbackState,
+                    builder: (_, snap) {
+                      final playing = snap.data?.playing ?? audioHandler.player.playing;
+                      return IconButton(
+                        iconSize: 34,
+                        color: _gpmText,
+                        icon: Icon(playing ? Icons.pause : Icons.play_arrow),
+                        onPressed: () => playing ? audioHandler.pause() : audioHandler.play(),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 6),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -2112,70 +2783,101 @@ class _RevivedAlbumPageState extends State<RevivedAlbumPage> {
     _future = YouTubeMusic.album(widget.url);
   }
 
+  void _play(YtAlbumPage page, int i) {
+    if (page.tracks.isEmpty) return;
+    audioHandler.playYouTubeList(page.tracks, i, lockToScope: true);
+    _openGpmPlayer(context);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _gpmBg,
-      bottomNavigationBar: _gpmSecondaryMiniPlayer(context),
-      appBar: AppBar(backgroundColor: _gpmOrange, foregroundColor: Colors.white, title: Text(widget.initialTitle ?? 'Album')),
-      body: FutureBuilder<YtAlbumPage>(
-        future: _future,
-        builder: (_, snap) {
-          if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: _gpmOrange));
-          final page = snap.data;
-          if (page == null) return Center(child: Text('Could not load album', style: TextStyle(color: _gpmSub)));
-          return ListView(
-            children: [
-              Container(
-                color: _gpmWhite,
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    SizedBox(width: 112, height: 112, child: _gpmNetArt(page.thumbnail ?? widget.initialThumb, size: 112)),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(page.title, style: TextStyle(color: _gpmText, fontSize: 19, fontWeight: FontWeight.w500)),
-                          const SizedBox(height: 4),
-                          Text(page.artist, style: TextStyle(color: _gpmSub, fontSize: 14)),
-                          const SizedBox(height: 10),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(backgroundColor: _gpmOrange, foregroundColor: Colors.white),
-                            icon: const Icon(Icons.play_arrow),
-                            label: const Text('PLAY'),
-                            onPressed: () {
-                              if (page.tracks.isEmpty) return;
-                              audioHandler.playYouTubeList(page.tracks, 0, lockToScope: true);
-                              _openGpmPlayer(context);
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              for (var i = 0; i < page.tracks.length; i++)
-                Container(
-                  color: _gpmWhite,
-                  child: ListTile(
-                    leading: Text('${i + 1}', style: TextStyle(color: _gpmSub, fontSize: 14)),
-                    title: Text(page.tracks[i].title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmText)),
-                    subtitle: Text(page.tracks[i].artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmSub, fontSize: 12.5)),
-                    trailing: IconButton(icon: Icon(Icons.more_vert, color: _gpmSub), onPressed: () => showPlayMusicTrackMenu(context, page.tracks[i])),
-                    onTap: () {
-                      audioHandler.playYouTubeList(page.tracks, i, lockToScope: true);
-                      _openGpmPlayer(context);
-                    },
+    return FutureBuilder<YtAlbumPage>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return _gpmLoadingScaffold(context, widget.initialTitle ?? 'Album');
+        }
+        final page = snap.data;
+        if (page == null) {
+          return _gpmLoadingScaffold(context, widget.initialTitle ?? 'Album', error: 'Could not load album');
+        }
+        final w = MediaQuery.of(context).size.width;
+        final heroH = min(w, 440.0);
+        final meta = [page.kind, page.year, page.info].whereType<String>().where((x) => x.trim().isNotEmpty).join(' • ');
+        final cur = audioHandler.currentTrack?.id;
+        return _GpmHeroScaffold(
+          title: page.title,
+          heroHeight: heroH,
+          slivers: [
+            SliverToBoxAdapter(
+              child: _gpmHeroHeader(
+                heroHeight: heroH,
+                image: _gpmNetArt(_gpmHiRes(page.thumbnail ?? widget.initialThumb)),
+                onPlay: () => _play(page, 0),
+                body: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 96, 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(page.title, style: TextStyle(color: _gpmText, fontSize: 22, fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 4),
+                      Text(page.artist, style: TextStyle(color: _gpmSub, fontSize: 15)),
+                      if (meta.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(meta, style: TextStyle(color: _gpmSub, fontSize: 13)),
+                      ],
+                    ],
                   ),
                 ),
-            ],
-          );
-        },
-      ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(8, 10, 8, 0),
+                child: Material(
+                  color: _gpmWhite,
+                  elevation: 2,
+                  borderRadius: BorderRadius.circular(2),
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < page.tracks.length; i++) ...[
+                        if (i > 0) Divider(height: 1, indent: 56, color: _gpmDivider),
+                        ListTile(
+                          leading: SizedBox(
+                            width: 24,
+                            child: Center(
+                              child: page.tracks[i].id == cur
+                                  ? const Icon(Icons.equalizer_rounded, color: _gpmOrange, size: 20)
+                                  : Text('${i + 1}', style: TextStyle(color: _gpmSub, fontSize: 14)),
+                            ),
+                          ),
+                          title: Text(page.tracks[i].title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: page.tracks[i].id == cur ? _gpmOrange : _gpmText, fontSize: 15)),
+                          subtitle: Text(
+                            page.tracks[i].durationSeconds > 0
+                                ? '${page.tracks[i].artist} • ${formatDuration(Duration(seconds: page.tracks[i].durationSeconds))}'
+                                : page.tracks[i].artist,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: _gpmSub, fontSize: 12.5),
+                          ),
+                          trailing: IconButton(
+                            icon: Icon(Icons.more_vert, color: _gpmSub, size: 20),
+                            onPressed: () => showPlayMusicTrackMenu(context, page.tracks[i]),
+                          ),
+                          onTap: () => _play(page, i),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -2192,6 +2894,7 @@ class RevivedArtistPage extends StatefulWidget {
 class _RevivedArtistPageState extends State<RevivedArtistPage> {
   late Future<YtArtistPage?> _future;
   bool _showAllSongs = false;
+  bool _descOpen = false;
 
   @override
   void initState() {
@@ -2199,277 +2902,259 @@ class _RevivedArtistPageState extends State<RevivedArtistPage> {
     _future = YouTubeMusic.artist(widget.url, widget.name);
   }
 
+  void _play(YtArtistPage page, int i) {
+    if (page.songs.isEmpty) return;
+    audioHandler.playYouTubeList(page.songs, i, lockToScope: true);
+    _openGpmPlayer(context);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFEEEEEE),
-      bottomNavigationBar: _gpmSecondaryMiniPlayer(context),
-      body: FutureBuilder<YtArtistPage?>(
-        future: _future,
-        builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: Color(0xFFFF5722)));
-          }
-          final page = snap.data;
-          if (page == null) {
-            return const Center(child: Text('Could not load artist', style: TextStyle(color: Color(0xFF757575))));
-          }
-          final img = page.banner ?? page.thumbnail ?? widget.initialThumb;
-          final songCount = _showAllSongs ? page.songs.length : min(5, page.songs.length);
+    return FutureBuilder<YtArtistPage?>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return _gpmLoadingScaffold(context, widget.name);
+        }
+        final page = snap.data;
+        if (page == null) {
+          return _gpmLoadingScaffold(context, widget.name, error: 'Could not load artist');
+        }
+        final img = _gpmHiRes(page.banner ?? page.thumbnail ?? widget.initialThumb);
+        final w = MediaQuery.of(context).size.width;
+        final heroH = (w * 0.72).clamp(240.0, 360.0);
+        final songCount = _showAllSongs ? page.songs.length : min(5, page.songs.length);
+        final desc = (page.description ?? '').trim();
+        var subs = (page.subscribersText ?? '').trim();
+        if (subs.isNotEmpty && !subs.toLowerCase().contains('subscriber')) subs = '$subs subscribers';
+        final cur = audioHandler.currentTrack?.id;
 
-          return CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              SliverAppBar(
-                expandedHeight: 220,
-                pinned: true,
-                backgroundColor: const Color(0xFFFFFFFF),
-                foregroundColor: const Color(0xFF212121),
-                iconTheme: const IconThemeData(color: Colors.white),
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (img != null)
-                        Image.network(img, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: const Color(0xFF424242)))
-                      else
-                        Container(color: const Color(0xFF424242)),
-                      const DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.black38, Colors.transparent, Colors.black26],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // White header card with overlapping bright orange Play FAB + Radio | Share
-              SliverToBoxAdapter(
-                child: Stack(
-                  clipBehavior: Clip.none,
+        return _GpmHeroScaffold(
+          title: page.name,
+          heroHeight: heroH,
+          slivers: [
+            SliverToBoxAdapter(
+              child: _gpmHeroHeader(
+                heroHeight: heroH,
+                image: img != null
+                    ? Image.network(img, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: const Color(0xFF424242)))
+                    : Container(color: const Color(0xFF424242)),
+                onPlay: () => _play(page, 0),
+                body: Column(
                   children: [
-                    Material(
-                      color: const Color(0xFFFFFFFF),
-                      elevation: 1,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 30, 24, 6),
                       child: Column(
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 22, 20, 14),
-                            child: Column(
-                              children: [
-                                Text(
-                                  page.name,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(color: Color(0xFF212121), fontSize: 22, fontWeight: FontWeight.w600),
-                                ),
-                                if (page.subscribersText != null && page.subscribersText!.isNotEmpty) ...[
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    page.subscribersText!,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(color: Color(0xFF616161), fontSize: 13.5, height: 1.4),
-                                  ),
-                                ],
-                                const SizedBox(height: 10),
-                                TextButton(
-                                  onPressed: () {},
-                                  child: const Text('READ MORE', style: TextStyle(color: Color(0xFFFF5722), fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 0.4)),
-                                ),
-                              ],
+                          Text(page.name,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: _gpmText, fontSize: 24, fontWeight: FontWeight.w500)),
+                          if (subs.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(subs, textAlign: TextAlign.center, style: TextStyle(color: _gpmSub, fontSize: 13.5)),
+                          ],
+                          if (desc.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            AnimatedSize(
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutCubic,
+                              alignment: Alignment.topCenter,
+                              child: Text(
+                                desc,
+                                textAlign: TextAlign.center,
+                                maxLines: _descOpen ? null : 3,
+                                overflow: _descOpen ? TextOverflow.visible : TextOverflow.ellipsis,
+                                style: TextStyle(color: _gpmSub, fontSize: 14, height: 1.45),
+                              ),
                             ),
-                          ),
-                          const Divider(height: 1, color: Color(0xFFE0E0E0)),
-                          SizedBox(
-                            height: 48,
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: () {
-                                      if (page.songs.isEmpty) return;
-                                      audioHandler.setShuffleMode(AudioServiceShuffleMode.all);
-                                      audioHandler.playYouTubeList(page.songs, Random().nextInt(page.songs.length), lockToScope: true);
-                                      _openGpmPlayer(context);
-                                    },
-                                    child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.sensors, color: Color(0xFF424242), size: 20),
-                                        SizedBox(width: 8),
-                                        Text('Radio', style: TextStyle(color: Color(0xFF212121), fontSize: 14, fontWeight: FontWeight.w500)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                Container(width: 1, height: 24, color: const Color(0xFFE0E0E0)),
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: () {
-                                      if (page.songs.isNotEmpty) shareTrack(page.songs.first);
-                                    },
-                                    child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.share, color: Color(0xFF424242), size: 19),
-                                        SizedBox(width: 8),
-                                        Text('Share', style: TextStyle(color: Color(0xFF212121), fontSize: 14, fontWeight: FontWeight.w500)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            TextButton(
+                              style: TextButton.styleFrom(foregroundColor: _gpmOrange),
+                              onPressed: () => setState(() => _descOpen = !_descOpen),
+                              child: Text(_descOpen ? 'READ LESS' : 'READ MORE',
+                                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, letterSpacing: 0.4)),
                             ),
-                          ),
+                          ] else
+                            const SizedBox(height: 14),
                         ],
                       ),
                     ),
-                    // Overlapping bright orange circular Play FAB
-                    Positioned(
-                      right: 18,
-                      top: -26,
-                      child: Material(
-                        color: const Color(0xFFFF5722),
-                        shape: const CircleBorder(),
-                        elevation: 5,
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () {
-                            if (page.songs.isEmpty) return;
-                            audioHandler.playYouTubeList(page.songs, 0, lockToScope: true);
-                            _openGpmPlayer(context);
-                          },
-                          child: const SizedBox(
-                            width: 52,
-                            height: 52,
-                            child: Icon(Icons.play_arrow, color: Colors.white, size: 30),
+                    Divider(height: 1, color: _gpmDivider),
+                    SizedBox(
+                      height: 52,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () {
+                                if (page.songs.isEmpty) return;
+                                audioHandler.setShuffleMode(AudioServiceShuffleMode.all);
+                                audioHandler.playYouTubeList(page.songs, Random().nextInt(page.songs.length), lockToScope: true);
+                                _openGpmPlayer(context);
+                              },
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.sensors, color: _gpmText, size: 21),
+                                  const SizedBox(width: 10),
+                                  Text('Radio', style: TextStyle(color: _gpmText, fontSize: 15, fontWeight: FontWeight.w500)),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
+                          Container(width: 1, height: 26, color: _gpmDivider),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () {
+                                if (page.songs.isNotEmpty) shareTrack(page.songs.first);
+                              },
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.share, color: _gpmText, size: 20),
+                                  const SizedBox(width: 10),
+                                  Text('Share', style: TextStyle(color: _gpmText, fontSize: 15, fontWeight: FontWeight.w500)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-              if (page.songs.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: Container(
-                    margin: const EdgeInsets.fromLTRB(10, 12, 10, 12),
-                    child: Material(
-                      color: const Color(0xFFFFFFFF),
-                      elevation: 2,
-                      borderRadius: BorderRadius.circular(2),
-                      child: Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 14, 14, 8),
-                            child: Row(
-                              children: [
-                                const Expanded(
-                                  child: Text('Top songs', style: TextStyle(color: Color(0xFF212121), fontSize: 18, fontWeight: FontWeight.w500)),
-                                ),
-                                if (page.songs.length > 5)
-                                  GestureDetector(
+            ),
+            if (page.songs.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(8, 10, 8, 10),
+                  child: Material(
+                    color: _gpmWhite,
+                    elevation: 2,
+                    borderRadius: BorderRadius.circular(2),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 14, 6),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text('Top songs', style: TextStyle(color: _gpmText, fontSize: 18, fontWeight: FontWeight.w500)),
+                              ),
+                              if (page.songs.length > 5)
+                                Material(
+                                  color: _gpmOrange,
+                                  borderRadius: BorderRadius.circular(2),
+                                  child: InkWell(
                                     onTap: () => setState(() => _showAllSongs = !_showAllSongs),
-                                    child: Container(
+                                    child: Padding(
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFFF5722),
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
-                                      child: Text(
-                                        _showAllSongs ? 'LESS' : 'MORE',
-                                        style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700),
-                                      ),
+                                      child: Text(_showAllSongs ? 'LESS' : 'MORE',
+                                          style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
                                     ),
                                   ),
-                              ],
-                            ),
+                                ),
+                            ],
                           ),
-                          for (var i = 0; i < songCount; i++) ...[
-                            if (i > 0) const Divider(height: 1, indent: 72, color: Color(0xFFE0E0E0)),
-                            ListTile(
-                              leading: SizedBox(width: 44, height: 44, child: CustomAlbumArtwork(track: page.songs[i])),
-                              title: Text(page.songs[i].title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(color: Color(0xFF212121), fontSize: 15, fontWeight: FontWeight.w500)),
-                              subtitle: Text(
-                                '${page.name} • ${formatDuration(Duration(seconds: page.songs[i].durationSeconds))}',
+                        ),
+                        for (var i = 0; i < songCount; i++) ...[
+                          if (i > 0) Divider(height: 1, indent: 72, color: _gpmDivider),
+                          ListTile(
+                            leading: SizedBox(width: 44, height: 44, child: _gpmArt(page.songs[i], size: 44)),
+                            title: Text(page.songs[i].title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: Color(0xFF757575), fontSize: 12.5),
-                              ),
-                              trailing: const Icon(Icons.more_vert, color: Color(0xFF757575), size: 20),
-                              onTap: () {
-                                audioHandler.playYouTubeList(page.songs, i, lockToScope: true);
-                                _openGpmPlayer(context);
+                                style: TextStyle(color: page.songs[i].id == cur ? _gpmOrange : _gpmText, fontSize: 15)),
+                            subtitle: Text(
+                              _artistSongSub(page, page.songs[i]),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: _gpmSub, fontSize: 12.5),
+                            ),
+                            trailing: IconButton(
+                              icon: Icon(Icons.more_vert, color: _gpmSub, size: 20),
+                              onPressed: () => showPlayMusicTrackMenu(context, page.songs[i]),
+                            ),
+                            onTap: () => _play(page, i),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            for (final sh in page.shelves.where((s) => s.kind == 'album' && s.items.isNotEmpty))
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+                  child: Material(
+                    color: _gpmWhite,
+                    elevation: 2,
+                    borderRadius: BorderRadius.circular(2),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(sh.title.isEmpty ? 'Albums' : sh.title,
+                              style: TextStyle(color: _gpmText, fontSize: 18, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 180,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: sh.items.length,
+                              separatorBuilder: (_, __) => const SizedBox(width: 12),
+                              itemBuilder: (_, i) {
+                                final it = sh.items[i];
+                                return GestureDetector(
+                                  onTap: () => Navigator.of(context).push(_gpmActivityRoute(
+                                    RevivedAlbumPage(url: it.id, initialTitle: it.title, initialThumb: it.thumbnail),
+                                  )),
+                                  child: SizedBox(
+                                    width: 126,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        SizedBox(width: 126, height: 126, child: _gpmNetArt(it.thumbnail, size: 126)),
+                                        const SizedBox(height: 6),
+                                        Text(it.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(color: _gpmText, fontSize: 13.5, fontWeight: FontWeight.w500)),
+                                        Text(it.subtitle,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(color: _gpmSub, fontSize: 12)),
+                                      ],
+                                    ),
+                                  ),
+                                );
                               },
                             ),
-                          ],
+                          ),
                         ],
                       ),
                     ),
                   ),
                 ),
-              for (final sh in page.shelves.where((s) => s.kind == 'album'))
-                SliverToBoxAdapter(
-                  child: Container(
-                    margin: const EdgeInsets.fromLTRB(10, 0, 10, 14),
-                    child: Material(
-                      color: const Color(0xFFFFFFFF),
-                      elevation: 2,
-                      borderRadius: BorderRadius.circular(2),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(sh.title.isEmpty ? 'Albums' : sh.title,
-                                style: const TextStyle(color: Color(0xFF212121), fontSize: 17, fontWeight: FontWeight.w500)),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              height: 176,
-                              child: ListView.separated(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: sh.items.length,
-                                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                                itemBuilder: (_, i) {
-                                  final it = sh.items[i];
-                                  return GestureDetector(
-                                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                                      builder: (_) => RevivedAlbumPage(url: it.id, initialTitle: it.title, initialThumb: it.thumbnail),
-                                    )),
-                                    child: SizedBox(
-                                      width: 126,
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          YtNetworkImage(url: it.thumbnail, size: 126),
-                                          const SizedBox(height: 6),
-                                          Text(it.title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(color: Color(0xFF212121), fontSize: 13.5, fontWeight: FontWeight.w500)),
-                                          Text(it.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(color: Color(0xFF757575), fontSize: 12)),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
-            ],
-          );
-        },
-      ),
+              ),
+          ],
+        );
+      },
     );
+  }
+
+  // "Periphery • 4:02", or plays ("12M plays") when YouTube gives no length.
+  String _artistSongSub(YtArtistPage page, TrackItem t) {
+    final parts = <String>[t.artist.isNotEmpty ? t.artist : page.name];
+    if (t.durationSeconds > 0) {
+      parts.add(formatDuration(Duration(seconds: t.durationSeconds)));
+    } else {
+      final p = page.plays[t.id] ?? page.plays[t.ytVideoId ?? ''];
+      if (p != null && p.isNotEmpty) parts.add(p);
+    }
+    return parts.join(' • ');
   }
 }
 
@@ -2525,7 +3210,7 @@ class _RevivedPlaylistPageState extends State<RevivedPlaylistPage> {
           return Scaffold(
             backgroundColor: _gpmBg,
       bottomNavigationBar: _gpmSecondaryMiniPlayer(context),
-            appBar: AppBar(backgroundColor: _gpmOrange, foregroundColor: Colors.white, title: Text(widget.title ?? 'Playlist')),
+            appBar: AppBar(backgroundColor: _gpmWhite, foregroundColor: _gpmText, surfaceTintColor: Colors.transparent, elevation: 2, title: Text(widget.title ?? 'Playlist')),
             body: const Center(child: CircularProgressIndicator(color: _gpmOrange)),
           );
         }
@@ -2538,8 +3223,10 @@ class _RevivedPlaylistPageState extends State<RevivedPlaylistPage> {
         backgroundColor: _gpmBg,
       bottomNavigationBar: _gpmSecondaryMiniPlayer(context),
         appBar: AppBar(
-          backgroundColor: _gpmOrange,
-          foregroundColor: Colors.white,
+          backgroundColor: _gpmWhite,
+          foregroundColor: _gpmText,
+          surfaceTintColor: Colors.transparent,
+          elevation: 2,
           title: Text(name),
           actions: [
           IconButton(
@@ -2551,13 +3238,13 @@ class _RevivedPlaylistPageState extends State<RevivedPlaylistPage> {
                   height: 26,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: done ? Colors.white : Colors.transparent,
-                    border: Border.all(color: Colors.white, width: 1.6),
+                    color: done ? _gpmOrange : Colors.transparent,
+                    border: Border.all(color: done ? _gpmOrange : _gpmSub, width: 1.6),
                   ),
                   child: Icon(
                     Icons.file_download,
                     size: 16,
-                    color: done ? _gpmOrange : Colors.white,
+                    color: done ? Colors.white : _gpmSub,
                   ),
                 );
               },
