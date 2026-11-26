@@ -14,13 +14,14 @@ import 'main.dart';
 // ── Classic Google Play Music Material 1 Palette ─────────────────────────────
 const Color _gpmOrange = Color(0xFFFF5722);
 const Color _gpmOrangeDark = Color(0xFFE64A19);
-const Color _gpmBg = Color(0xFFF5F5F5);
-const Color _gpmWhite = Color(0xFFFFFFFF);
-const Color _gpmText = Color(0xFF212121);
-const Color _gpmSub = Color(0xFF757575);
-const Color _gpmDivider = Color(0xFFE0E0E0);
-const Color _gpmArtBg = Color(0xFFE0E0E0);
-const Color _gpmArtCircle = Color(0xFF9E9E9E);
+bool get _gpmDark => appState.b('gpm_dark_theme', false);
+Color get _gpmBg => _gpmDark ? const Color(0xFF181818) : const Color(0xFFF5F5F5);
+Color get _gpmWhite => _gpmDark ? const Color(0xFF242424) : const Color(0xFFFFFFFF);
+Color get _gpmText => _gpmDark ? const Color(0xFFF2F2F2) : const Color(0xFF212121);
+Color get _gpmSub => _gpmDark ? const Color(0xFFA8A8A8) : const Color(0xFF757575);
+Color get _gpmDivider => _gpmDark ? const Color(0xFF363636) : const Color(0xFFE0E0E0);
+Color get _gpmArtBg => _gpmDark ? const Color(0xFF303030) : const Color(0xFFE0E0E0);
+Color get _gpmArtCircle => _gpmDark ? const Color(0xFF525252) : const Color(0xFF9E9E9E);
 
 YtAlbumPage? _memLikedPage;
 
@@ -73,7 +74,7 @@ Widget _gpmPlaceholder({double iconSize = 42, bool isArtist = false}) => Contain
         child: Container(
           width: iconSize * 1.65,
           height: iconSize * 1.65,
-          decoration: const BoxDecoration(color: _gpmArtCircle, shape: BoxShape.circle),
+          decoration: BoxDecoration(color: _gpmArtCircle, shape: BoxShape.circle),
           child: Icon(isArtist ? Icons.person_rounded : Icons.music_note_rounded, color: _gpmArtBg, size: iconSize),
         ),
       ),
@@ -101,8 +102,8 @@ Widget _gpmMosaicPlaceholder() => Container(
 Widget _miniNoteDot() => Container(
       width: 40,
       height: 40,
-      decoration: const BoxDecoration(color: _gpmArtCircle, shape: BoxShape.circle),
-      child: const Icon(Icons.music_note_rounded, color: _gpmArtBg, size: 22),
+      decoration: BoxDecoration(color: _gpmArtCircle, shape: BoxShape.circle),
+      child: Icon(Icons.music_note_rounded, color: _gpmArtBg, size: 22),
     );
 
 Widget _gpmArt(TrackItem? track, {double? size}) {
@@ -208,10 +209,10 @@ void showPlayMusicTrackMenu(BuildContext context, TrackItem track) {
           children: [
             ListTile(
               leading: SizedBox(width: 44, height: 44, child: _gpmArt(track, size: 44)),
-              title: Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _gpmText, fontWeight: FontWeight.w600)),
-              subtitle: Text(track.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _gpmSub)),
+              title: Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmText, fontWeight: FontWeight.w600)),
+              subtitle: Text(track.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmSub)),
             ),
-            const Divider(height: 1, color: _gpmDivider),
+            Divider(height: 1, color: _gpmDivider),
             _gpmMenuTile(Icons.queue_play_next, 'Play next', () {
               audioHandler.addToQueue([track], next: true);
               Navigator.pop(ctx);
@@ -259,7 +260,7 @@ void showPlayMusicTrackMenu(BuildContext context, TrackItem track) {
 Widget _gpmMenuTile(IconData icon, String label, VoidCallback onTap) => ListTile(
       dense: true,
       leading: Icon(icon, color: _gpmSub, size: 22),
-      title: Text(label, style: const TextStyle(color: _gpmText, fontSize: 15)),
+      title: Text(label, style: TextStyle(color: _gpmText, fontSize: 15)),
       onTap: onTap,
     );
 
@@ -301,7 +302,7 @@ class _RevivedSetupScreenState extends State<RevivedSetupScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(statusBarColor: _gpmOrangeDark, statusBarIconBrightness: Brightness.light),
       child: Scaffold(
-        backgroundColor: const Color(0xFFFAFAFA),
+        backgroundColor: _gpmBg,
         body: ValueListenableBuilder<YtAccount>(
           valueListenable: ytAccount,
           builder: (_, acc, __) {
@@ -363,16 +364,16 @@ class _RevivedSetupScreenState extends State<RevivedSetupScreen> {
                           ),
                           title: Text(
                             _storageOk ? 'Storage & media allowed' : 'Allow local music access',
-                            style: const TextStyle(color: _gpmText, fontSize: 15.5, fontWeight: FontWeight.w400),
+                            style: TextStyle(color: _gpmText, fontSize: 15.5, fontWeight: FontWeight.w400),
                           ),
-                          subtitle: const Text(
+                          subtitle: Text(
                             'Scan audio files & show lock-screen controls',
                             style: TextStyle(color: _gpmSub, fontSize: 13),
                           ),
                           onTap: _storageOk ? null : _grantStorage,
                         ),
                       ),
-                      const Divider(height: 1, color: _gpmDivider),
+                      Divider(height: 1, color: _gpmDivider),
 
                       const Padding(
                         padding: EdgeInsets.fromLTRB(16, 20, 16, 6),
@@ -392,11 +393,11 @@ class _RevivedSetupScreenState extends State<RevivedSetupScreen> {
                                 ),
                           title: Text(
                             signedIn ? (acc.name ?? 'Signed in') : 'Choose account',
-                            style: const TextStyle(color: _gpmText, fontSize: 15.5, fontWeight: FontWeight.w400),
+                            style: TextStyle(color: _gpmText, fontSize: 15.5, fontWeight: FontWeight.w400),
                           ),
                           subtitle: Text(
                             signedIn ? 'YouTube Music playlists & Thumbs up synced' : 'Tap to sign in with YouTube Music',
-                            style: const TextStyle(color: _gpmSub, fontSize: 13),
+                            style: TextStyle(color: _gpmSub, fontSize: 13),
                           ),
                           trailing: signedIn
                               ? null
@@ -404,8 +405,8 @@ class _RevivedSetupScreenState extends State<RevivedSetupScreen> {
                           onTap: (signedIn || _signingIn) ? null : _signIn,
                         ),
                       ),
-                      const Divider(height: 1, color: _gpmDivider),
-                      const Padding(
+                      Divider(height: 1, color: _gpmDivider),
+                      Padding(
                         padding: EdgeInsets.fromLTRB(16, 14, 16, 12),
                         child: Text(
                           'You can skip signing in and still play local music or search YouTube Music anytime.',
@@ -418,7 +419,7 @@ class _RevivedSetupScreenState extends State<RevivedSetupScreen> {
 
                 // Classic Android Setup Wizard Bottom Navigation Bar (SKIP | GET STARTED)
                 Container(
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: _gpmWhite,
                     border: Border(top: BorderSide(color: _gpmDivider, width: 1)),
                   ),
@@ -498,7 +499,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
     _ytFeedFuture = YouTubeMusic.homeFeed();
     _ytPlFuture = YouTubeMusic.libraryPlaylists();
     _preloadLiked();
-    WidgetsBinding.instance.addPostFrameCallback((_) => checkRevivedUpdate(context));
+    appState.setB('update_check', false);
   }
 
   Future<void> _preloadLiked() async {
@@ -696,9 +697,9 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                           children: [
                             Text(acc.signedIn ? (acc.name ?? 'YouTube Music') : 'Play Music',
                                 maxLines: 1, overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: _gpmText, fontSize: 15, fontWeight: FontWeight.w600)),
+                                style: TextStyle(color: _gpmText, fontSize: 15, fontWeight: FontWeight.w600)),
                             Text(acc.signedIn ? 'YouTube Music connected' : 'Tap to sign in',
-                                style: const TextStyle(color: _gpmSub, fontSize: 12)),
+                                style: TextStyle(color: _gpmSub, fontSize: 12)),
                           ],
                         ),
                       ),
@@ -725,16 +726,16 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
               Navigator.pop(context);
               openDownloads(context);
             }),
-            const Divider(color: _gpmDivider, height: 16),
+            Divider(color: _gpmDivider, height: 16),
             ListTile(
-              title: const Text('Settings', style: TextStyle(color: _gpmText, fontSize: 14.5, fontWeight: FontWeight.w500)),
+              title: Text('Settings', style: TextStyle(color: _gpmText, fontSize: 14.5, fontWeight: FontWeight.w500)),
               onTap: () {
                 Navigator.pop(context);
                 openRevivedSettings(context);
               },
             ),
             ListTile(
-              title: const Text('Help & feedback', style: TextStyle(color: _gpmText, fontSize: 14.5, fontWeight: FontWeight.w500)),
+              title: Text('Help & feedback', style: TextStyle(color: _gpmText, fontSize: 14.5, fontWeight: FontWeight.w500)),
               onTap: () {
                 Navigator.pop(context);
                 checkRevivedUpdate(context, manual: true);
@@ -747,7 +748,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
   }
 
   Widget _drawerTile(IconData icon, String title, bool selected, VoidCallback onTap) => Container(
-        color: selected ? const Color(0xFFEEEEEE) : Colors.transparent,
+        color: selected ? (_gpmDark ? const Color(0xFF323232) : const Color(0xFFEEEEEE)) : Colors.transparent,
         child: ListTile(
           leading: Icon(icon, color: selected ? _gpmOrange : _gpmSub, size: 22),
           title: Text(title, style: TextStyle(color: selected ? _gpmOrange : _gpmText, fontSize: 14.5, fontWeight: FontWeight.w500)),
@@ -769,7 +770,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
         return ListView(
           padding: const EdgeInsets.fromLTRB(12, 16, 12, 24),
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(left: 4, bottom: 12),
               child: Text('Auto Playlists', style: TextStyle(color: _gpmText, fontSize: 18, fontWeight: FontWeight.w500)),
             ),
@@ -799,7 +800,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
               ],
             ),
             if (ytPls.isNotEmpty || appState.playlists.isNotEmpty) ...[
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(4, 20, 4, 12),
                 child: Text('Playlists', style: TextStyle(color: _gpmText, fontSize: 18, fontWeight: FontWeight.w500)),
               ),
@@ -844,7 +845,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
       byArtist.putIfAbsent(t.artist.isEmpty ? 'Unknown artist' : t.artist, () => []).add(t);
     }
     final list = byArtist.entries.toList()..sort((a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()));
-    if (list.isEmpty) return const Center(child: Text('No artists in library', style: TextStyle(color: _gpmSub)));
+    if (list.isEmpty) return Center(child: Text('No artists in library', style: TextStyle(color: _gpmSub)));
 
     return GridView.builder(
       padding: const EdgeInsets.all(10),
@@ -871,7 +872,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
       byAlbum.putIfAbsent(t.album.isEmpty ? 'Download' : t.album, () => []).add(t);
     }
     final list = byAlbum.entries.toList()..sort((a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()));
-    if (list.isEmpty) return const Center(child: Text('No albums in library', style: TextStyle(color: _gpmSub)));
+    if (list.isEmpty) return Center(child: Text('No albums in library', style: TextStyle(color: _gpmSub)));
 
     return GridView.builder(
       padding: const EdgeInsets.all(10),
@@ -899,7 +900,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('No local songs yet', style: TextStyle(color: _gpmSub, fontSize: 15)),
+            Text('No local songs yet', style: TextStyle(color: _gpmSub, fontSize: 15)),
             const SizedBox(height: 10),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: _gpmOrange, foregroundColor: Colors.white),
@@ -973,7 +974,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
               Padding(
                 padding: const EdgeInsets.only(left: 4, bottom: 10),
                 child: Text(shelf.title.isEmpty ? 'Recommended' : shelf.title,
-                    style: const TextStyle(color: _gpmText, fontSize: 18, fontWeight: FontWeight.w500)),
+                    style: TextStyle(color: _gpmText, fontSize: 18, fontWeight: FontWeight.w500)),
               ),
               SizedBox(
                 height: 214,
@@ -1025,13 +1026,13 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
   Widget _buildSearchBody() {
     if (_searching) return const Center(child: CircularProgressIndicator(color: _gpmOrange));
     if (_artistRes.isEmpty && _songRes.isEmpty && _albumRes.isEmpty) {
-      return const Center(child: Text('Search YouTube Music & local library', style: TextStyle(color: _gpmSub)));
+      return Center(child: Text('Search YouTube Music & local library', style: TextStyle(color: _gpmSub)));
     }
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
         if (_artistRes.isNotEmpty) ...[
-          const Padding(padding: EdgeInsets.only(bottom: 8), child: Text('Artists', style: TextStyle(color: _gpmSub, fontWeight: FontWeight.w600))),
+          Padding(padding: EdgeInsets.only(bottom: 8), child: Text('Artists', style: TextStyle(color: _gpmSub, fontWeight: FontWeight.w600))),
           for (final a in _artistRes.take(2))
             Card(
               color: _gpmWhite,
@@ -1039,15 +1040,15 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(
                 leading: SizedBox(width: 46, height: 46, child: _gpmNetArt(a.thumbnail, size: 46, isArtist: true)),
-                title: Text(a.name, style: const TextStyle(color: _gpmText, fontWeight: FontWeight.w500)),
-                subtitle: const Text('Artist', style: TextStyle(color: _gpmSub)),
+                title: Text(a.name, style: TextStyle(color: _gpmText, fontWeight: FontWeight.w500)),
+                subtitle: Text('Artist', style: TextStyle(color: _gpmSub)),
                 onTap: () => Navigator.of(context).push(_gpmActivityRoute(RevivedArtistPage(url: a.url, name: a.name, initialThumb: a.thumbnail))),
               ),
             ),
           const SizedBox(height: 8),
         ],
         if (_songRes.isNotEmpty) ...[
-          const Padding(padding: EdgeInsets.only(bottom: 8), child: Text('Songs', style: TextStyle(color: _gpmSub, fontWeight: FontWeight.w600))),
+          Padding(padding: EdgeInsets.only(bottom: 8), child: Text('Songs', style: TextStyle(color: _gpmSub, fontWeight: FontWeight.w600))),
           for (final t in _songRes.take(10))
             _gpmSongCardRow(t, () {
               audioHandler.playYouTubeTrack(t);
@@ -1055,7 +1056,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
             }),
         ],
         if (_albumRes.isNotEmpty) ...[
-          const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Albums', style: TextStyle(color: _gpmSub, fontWeight: FontWeight.w600))),
+          Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Albums', style: TextStyle(color: _gpmSub, fontWeight: FontWeight.w600))),
           GridView.count(
             crossAxisCount: 2,
             shrinkWrap: true,
@@ -1132,9 +1133,9 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                     children: [
                       Expanded(
                         child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: _gpmText, fontSize: 14, fontWeight: FontWeight.w400)),
+                            style: TextStyle(color: _gpmText, fontSize: 14, fontWeight: FontWeight.w400)),
                       ),
-                      if (showMore) const Icon(Icons.more_vert, color: _gpmSub, size: 18),
+                      if (showMore) Icon(Icons.more_vert, color: _gpmSub, size: 18),
                     ],
                   ),
                 ),
@@ -1150,7 +1151,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
     final dur = t.durationSeconds > 0 ? ' • ${formatDuration(Duration(seconds: t.durationSeconds))}' : '';
     return Container(
       margin: const EdgeInsets.only(bottom: 1),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: _gpmWhite,
         boxShadow: [BoxShadow(color: Color(0x14000000), blurRadius: 2, offset: Offset(0, 1))],
       ),
@@ -1160,8 +1161,8 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
         title: Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis,
             style: TextStyle(color: active ? _gpmOrange : _gpmText, fontSize: 15, fontWeight: FontWeight.w400)),
         subtitle: Text('${t.artist.isEmpty ? "Unknown artist" : t.artist}$dur', maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: _gpmSub, fontSize: 12.5)),
-        trailing: IconButton(icon: const Icon(Icons.more_vert, color: _gpmSub, size: 20), onPressed: () => showPlayMusicTrackMenu(context, t)),
+            style: TextStyle(color: _gpmSub, fontSize: 12.5)),
+        trailing: IconButton(icon: Icon(Icons.more_vert, color: _gpmSub, size: 20), onPressed: () => showPlayMusicTrackMenu(context, t)),
         onTap: onTap,
       ),
     );
@@ -1177,7 +1178,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
         if ((d.primaryVelocity ?? 0) < -250) _openGpmPlayer(context);
       },
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: _gpmWhite,
           boxShadow: [BoxShadow(color: Color(0x24000000), blurRadius: 6, offset: Offset(0, -1))],
         ),
@@ -1195,9 +1196,9 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _gpmText, fontSize: 15, fontWeight: FontWeight.w400)),
+                      Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmText, fontSize: 15, fontWeight: FontWeight.w400)),
                       const SizedBox(height: 1),
-                      Text(t.artist.isEmpty ? 'Unknown artist' : t.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _gpmSub, fontSize: 12.5)),
+                      Text(t.artist.isEmpty ? 'Unknown artist' : t.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmSub, fontSize: 12.5)),
                     ],
                   ),
                 ),
@@ -1207,7 +1208,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                     final playing = snap.data?.playing ?? audioHandler.player.playing;
                     return IconButton(
                       iconSize: 34,
-                      color: Colors.black,
+                      color: _gpmText,
                       icon: Icon(playing ? Icons.pause : Icons.play_arrow),
                       onPressed: () => playing ? audioHandler.pause() : audioHandler.play(),
                     );
@@ -1279,7 +1280,7 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: track == null
-            ? const ColoredBox(color: _gpmWhite, child: Center(child: Text('Nothing playing', style: TextStyle(color: _gpmSub))))
+            ? ColoredBox(color: _gpmWhite, child: Center(child: Text('Nothing playing', style: TextStyle(color: _gpmSub))))
             : GestureDetector(
                 onVerticalDragUpdate: _onDragUpdate,
                 onVerticalDragEnd: _onDragEnd,
@@ -1312,19 +1313,19 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _gpmText, fontSize: 15.5, fontWeight: FontWeight.w400)),
+                                  Text(track.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmText, fontSize: 15.5, fontWeight: FontWeight.w400)),
                                   const SizedBox(height: 1),
-                                  Text(track.artist.isEmpty ? 'Unknown artist' : track.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _gpmSub, fontSize: 12.5)),
+                                  Text(track.artist.isEmpty ? 'Unknown artist' : track.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmSub, fontSize: 12.5)),
                                 ],
                               ),
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.queue_music, color: _gpmText, size: 24),
+                            icon: Icon(Icons.queue_music, color: _gpmText, size: 24),
                             onPressed: () => _showGpmQueueSheet(context),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.more_vert, color: _gpmSub, size: 24),
+                            icon: Icon(Icons.more_vert, color: _gpmSub, size: 24),
                             onPressed: () => showPlayMusicTrackMenu(context, track),
                           ),
                         ],
@@ -1414,7 +1415,7 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                                       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.5),
                                       overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
                                       activeTrackColor: _gpmOrange,
-                                      inactiveTrackColor: const Color(0xFFD6D6D6),
+                                      inactiveTrackColor: _gpmDark ? const Color(0xFF4A4A4A) : const Color(0xFFD6D6D6),
                                       thumbColor: _gpmOrange,
                                     ),
                                     child: Slider(value: curMs, max: maxMs, onChanged: (v) => audioHandler.seek(Duration(milliseconds: v.round()))),
@@ -1425,8 +1426,8 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(formatDuration(pos), style: const TextStyle(color: _gpmSub, fontSize: 12)),
-                                      Text(formatDuration(dur), style: const TextStyle(color: _gpmSub, fontSize: 12)),
+                                      Text(formatDuration(pos), style: TextStyle(color: _gpmSub, fontSize: 12)),
+                                      Text(formatDuration(dur), style: TextStyle(color: _gpmSub, fontSize: 12)),
                                     ],
                                   ),
                                 ),
@@ -1456,7 +1457,7 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                                                 },
                                               ),
                                               IconButton(
-                                                icon: const Icon(Icons.skip_previous, color: _gpmText, size: 30),
+                                                icon: Icon(Icons.skip_previous, color: _gpmText, size: 30),
                                                 onPressed: () => audioHandler.skipToPrevious(),
                                               ),
                                               Material(
@@ -1483,11 +1484,11 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                                                 ),
                                               ),
                                               IconButton(
-                                                icon: const Icon(Icons.skip_next, color: _gpmText, size: 30),
+                                                icon: Icon(Icons.skip_next, color: _gpmText, size: 30),
                                                 onPressed: () => audioHandler.skipToNext(),
                                               ),
                                               IconButton(
-                                                icon: const Icon(Icons.thumb_down_off_alt, color: _gpmText, size: 24),
+                                                icon: Icon(Icons.thumb_down_off_alt, color: _gpmText, size: 24),
                                                 onPressed: () {
                                                   audioHandler.skipToNext();
                                                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Skipped track')));
@@ -1526,11 +1527,11 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
           final list = audioHandler.tracks;
           return Column(
             children: [
-              const Padding(
+              Padding(
                 padding: EdgeInsets.all(14),
                 child: Text('Queue', style: TextStyle(color: _gpmText, fontSize: 17, fontWeight: FontWeight.w600)),
               ),
-              const Divider(height: 1, color: _gpmDivider),
+              Divider(height: 1, color: _gpmDivider),
               Expanded(
                 child: ListView.builder(
                   controller: sc,
@@ -1541,7 +1542,7 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                     return ListTile(
                       leading: SizedBox(width: 42, height: 42, child: _gpmArt(t, size: 42)),
                       title: Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: active ? _gpmOrange : _gpmText)),
-                      subtitle: Text(t.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _gpmSub)),
+                      subtitle: Text(t.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmSub)),
                       onTap: () {
                         audioHandler.playIndex(i);
                         Navigator.pop(ctx);
@@ -1597,7 +1598,7 @@ class _RevivedAlbumPageState extends State<RevivedAlbumPage> {
         builder: (_, snap) {
           if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: _gpmOrange));
           final page = snap.data;
-          if (page == null) return const Center(child: Text('Could not load album', style: TextStyle(color: _gpmSub)));
+          if (page == null) return Center(child: Text('Could not load album', style: TextStyle(color: _gpmSub)));
           return ListView(
             children: [
               Container(
@@ -1611,9 +1612,9 @@ class _RevivedAlbumPageState extends State<RevivedAlbumPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(page.title, style: const TextStyle(color: _gpmText, fontSize: 19, fontWeight: FontWeight.w500)),
+                          Text(page.title, style: TextStyle(color: _gpmText, fontSize: 19, fontWeight: FontWeight.w500)),
                           const SizedBox(height: 4),
-                          Text(page.artist, style: const TextStyle(color: _gpmSub, fontSize: 14)),
+                          Text(page.artist, style: TextStyle(color: _gpmSub, fontSize: 14)),
                           const SizedBox(height: 10),
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(backgroundColor: _gpmOrange, foregroundColor: Colors.white),
@@ -1636,10 +1637,10 @@ class _RevivedAlbumPageState extends State<RevivedAlbumPage> {
                 Container(
                   color: _gpmWhite,
                   child: ListTile(
-                    leading: Text('${i + 1}', style: const TextStyle(color: _gpmSub, fontSize: 14)),
-                    title: Text(page.tracks[i].title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _gpmText)),
-                    subtitle: Text(page.tracks[i].artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _gpmSub, fontSize: 12.5)),
-                    trailing: IconButton(icon: const Icon(Icons.more_vert, color: _gpmSub), onPressed: () => showPlayMusicTrackMenu(context, page.tracks[i])),
+                    leading: Text('${i + 1}', style: TextStyle(color: _gpmSub, fontSize: 14)),
+                    title: Text(page.tracks[i].title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmText)),
+                    subtitle: Text(page.tracks[i].artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmSub, fontSize: 12.5)),
+                    trailing: IconButton(icon: Icon(Icons.more_vert, color: _gpmSub), onPressed: () => showPlayMusicTrackMenu(context, page.tracks[i])),
                     onTap: () {
                       audioHandler.playYouTubeList(page.tracks, i, lockToScope: true);
                       _openGpmPlayer(context);
@@ -1681,7 +1682,7 @@ class _RevivedArtistPageState extends State<RevivedArtistPage> {
         builder: (_, snap) {
           if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: _gpmOrange));
           final page = snap.data;
-          if (page == null) return const Center(child: Text('Could not load artist', style: TextStyle(color: _gpmSub)));
+          if (page == null) return Center(child: Text('Could not load artist', style: TextStyle(color: _gpmSub)));
           return ListView(
             children: [
               SizedBox(height: 190, width: double.infinity, child: _gpmNetArt(page.banner ?? page.thumbnail ?? widget.initialThumb, isArtist: true)),
@@ -1694,8 +1695,8 @@ class _RevivedArtistPageState extends State<RevivedArtistPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(page.name, style: const TextStyle(color: _gpmText, fontSize: 22, fontWeight: FontWeight.w500)),
-                          if (page.subscribersText != null) Text(page.subscribersText!, style: const TextStyle(color: _gpmSub, fontSize: 13)),
+                          Text(page.name, style: TextStyle(color: _gpmText, fontSize: 22, fontWeight: FontWeight.w500)),
+                          if (page.subscribersText != null) Text(page.subscribersText!, style: TextStyle(color: _gpmSub, fontSize: 13)),
                         ],
                       ),
                     ),
@@ -1712,15 +1713,15 @@ class _RevivedArtistPageState extends State<RevivedArtistPage> {
                   ],
                 ),
               ),
-              const Padding(padding: EdgeInsets.fromLTRB(16, 16, 16, 8), child: Text('Top songs', style: TextStyle(color: _gpmSub, fontWeight: FontWeight.w600))),
+              Padding(padding: EdgeInsets.fromLTRB(16, 16, 16, 8), child: Text('Top songs', style: TextStyle(color: _gpmSub, fontWeight: FontWeight.w600))),
               for (var i = 0; i < min(10, page.songs.length); i++)
                 Container(
                   color: _gpmWhite,
                   child: ListTile(
                     leading: SizedBox(width: 44, height: 44, child: _gpmArt(page.songs[i], size: 44)),
-                    title: Text(page.songs[i].title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _gpmText)),
-                    subtitle: Text(page.plays[page.songs[i].id] ?? page.songs[i].artist, style: const TextStyle(color: _gpmSub, fontSize: 12.5)),
-                    trailing: IconButton(icon: const Icon(Icons.more_vert, color: _gpmSub), onPressed: () => showPlayMusicTrackMenu(context, page.songs[i])),
+                    title: Text(page.songs[i].title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmText)),
+                    subtitle: Text(page.plays[page.songs[i].id] ?? page.songs[i].artist, style: TextStyle(color: _gpmSub, fontSize: 12.5)),
+                    trailing: IconButton(icon: Icon(Icons.more_vert, color: _gpmSub), onPressed: () => showPlayMusicTrackMenu(context, page.songs[i])),
                     onTap: () {
                       audioHandler.playYouTubeList(page.songs, i, lockToScope: true);
                       _openGpmPlayer(context);
@@ -1832,9 +1833,9 @@ class _RevivedPlaylistPageState extends State<RevivedPlaylistPage> {
               color: _gpmWhite,
               child: ListTile(
                 leading: SizedBox(width: 44, height: 44, child: _gpmArt(t, size: 44)),
-                title: Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _gpmText)),
-                subtitle: Text(t.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _gpmSub, fontSize: 12.5)),
-                trailing: IconButton(icon: const Icon(Icons.more_vert, color: _gpmSub), onPressed: () => showPlayMusicTrackMenu(context, t)),
+                title: Text(t.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmText)),
+                subtitle: Text(t.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: _gpmSub, fontSize: 12.5)),
+                trailing: IconButton(icon: Icon(Icons.more_vert, color: _gpmSub), onPressed: () => showPlayMusicTrackMenu(context, t)),
                 onTap: () {
                   audioHandler.playYouTubeList(tracks, i);
                   _openGpmPlayer(context);
@@ -1863,7 +1864,7 @@ class RevivedSettingsScreen extends StatelessWidget {
       child: ListenableBuilder(
         listenable: appState,
         builder: (context, _) => Scaffold(
-          backgroundColor: const Color(0xFFFAFAFA),
+          backgroundColor: _gpmBg,
           appBar: AppBar(
             backgroundColor: _gpmOrange,
             foregroundColor: Colors.white,
@@ -1876,62 +1877,65 @@ class RevivedSettingsScreen extends StatelessWidget {
               ValueListenableBuilder<YtAccount>(
                 valueListenable: ytAccount,
                 builder: (_, acc, __) => ListTile(
-                  title: Text(acc.signedIn ? (acc.name ?? 'YouTube Music account') : 'Tap to choose account', style: const TextStyle(color: _gpmText, fontSize: 15.5)),
-                  subtitle: acc.signedIn ? const Text('YouTube Music connected', style: TextStyle(color: _gpmSub, fontSize: 13)) : null,
+                  title: Text(acc.signedIn ? (acc.name ?? 'YouTube Music account') : 'Tap to choose account', style: TextStyle(color: _gpmText, fontSize: 15.5)),
+                  subtitle: acc.signedIn ? Text('YouTube Music connected', style: TextStyle(color: _gpmSub, fontSize: 13)) : null,
                   onTap: () => showYtAccountSheet(context),
                 ),
               ),
-              const Divider(height: 1, color: _gpmDivider),
+              Divider(height: 1, color: _gpmDivider),
+              _gpmSection('APPEARANCE'),
+              _gpmSwitch('Dark theme', 'Use classic dark Material theme', _gpmDark, (v) => appState.setB('gpm_dark_theme', v)),
+              Divider(height: 1, color: _gpmDivider),
               _gpmSection('LIBRARY & STREAMING'),
               ListTile(
-                title: const Text('Import from Spotify', style: TextStyle(color: _gpmText, fontSize: 15.5)),
+                title: Text('Import from Spotify', style: TextStyle(color: _gpmText, fontSize: 15.5)),
                 onTap: () => openSpotifyImport(context),
               ),
-              const Divider(height: 1, color: _gpmDivider),
+              Divider(height: 1, color: _gpmDivider),
               ListTile(
-                title: const Text('Offline downloads', style: TextStyle(color: _gpmText, fontSize: 15.5)),
-                subtitle: Text('${OfflineStore.count} songs • ${OfflineStore.formatBytes(OfflineStore.totalBytes)}', style: const TextStyle(color: _gpmSub, fontSize: 13)),
+                title: Text('Offline downloads', style: TextStyle(color: _gpmText, fontSize: 15.5)),
+                subtitle: Text('${OfflineStore.count} songs • ${OfflineStore.formatBytes(OfflineStore.totalBytes)}', style: TextStyle(color: _gpmSub, fontSize: 13)),
                 onTap: () => openDownloads(context),
               ),
-              const Divider(height: 1, color: _gpmDivider),
+              Divider(height: 1, color: _gpmDivider),
               ListTile(
-                title: const Text('Clear stream cache', style: TextStyle(color: _gpmText, fontSize: 15.5)),
+                title: Text('Clear stream cache', style: TextStyle(color: _gpmText, fontSize: 15.5)),
                 onTap: () async {
                   await const MethodChannel('com.alexlmp.app/ytmusic').invokeMethod('ytClearCache');
                   if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Stream cache cleared')));
                 },
               ),
-              const Divider(height: 1, color: _gpmDivider),
+              Divider(height: 1, color: _gpmDivider),
               _gpmSection('PLAYBACK'),
               ListTile(
-                title: const Text('Equalizer', style: TextStyle(color: _gpmText, fontSize: 15.5)),
-                subtitle: const Text('Adjust audio settings', style: TextStyle(color: _gpmSub, fontSize: 13)),
+                title: Text('Equalizer', style: TextStyle(color: _gpmText, fontSize: 15.5)),
+                subtitle: Text('Adjust audio settings', style: TextStyle(color: _gpmSub, fontSize: 13)),
                 onTap: () => showPlaybackSheet(context),
               ),
-              const Divider(height: 1, color: _gpmDivider),
+              Divider(height: 1, color: _gpmDivider),
               _gpmSwitch('Crossfade', 'Smoothly blend between songs', appState.b('crossfade_on'), (v) => appState.setB('crossfade_on', v)),
-              const Divider(height: 1, color: _gpmDivider),
+              Divider(height: 1, color: _gpmDivider),
               _gpmSwitch('Skip silence', 'Trim dead air between tracks', appState.b('skip_silence'), (v) {
                 appState.setB('skip_silence', v);
                 audioHandler.player.setSkipSilenceEnabled(v);
               }),
-              const Divider(height: 1, color: _gpmDivider),
+              Divider(height: 1, color: _gpmDivider),
               _gpmSwitch('Autoplay radio', 'Keep music playing after queue ends', appState.b('autoplay_radio'), (v) => appState.setB('autoplay_radio', v)),
-              const Divider(height: 1, color: _gpmDivider),
+              Divider(height: 1, color: _gpmDivider),
               _gpmSwitch('Data saver', 'Lower audio bitrate on mobile data', appState.b('yt_data_saver'), (v) {
                 appState.setB('yt_data_saver', v);
                 applyNativeSettings();
               }),
-              const Divider(height: 1, color: _gpmDivider),
+              Divider(height: 1, color: _gpmDivider),
               _gpmSection('ABOUT PLAY MUSIC'),
               ListTile(
-                title: const Text('Check for updates', style: TextStyle(color: _gpmText, fontSize: 15.5)),
-                subtitle: const Text(String.fromEnvironment('APP_BUILD_VER', defaultValue: 'v1.0.0'), style: TextStyle(color: _gpmSub, fontSize: 13)),
+                title: Text('Check for updates', style: TextStyle(color: _gpmText, fontSize: 15.5)),
+                subtitle: Text(String.fromEnvironment('APP_BUILD_VER', defaultValue: 'v1.0.0'), style: TextStyle(color: _gpmSub, fontSize: 13)),
                 onTap: () => checkRevivedUpdate(context, manual: true),
               ),
-              const Divider(height: 1, color: _gpmDivider),
+              Divider(height: 1, color: _gpmDivider),
               ListTile(
-                title: const Text('Re-run setup', style: TextStyle(color: _gpmText, fontSize: 15.5)),
+                title: Text('Re-run setup', style: TextStyle(color: _gpmText, fontSize: 15.5)),
                 onTap: () {
                   appState.setB('setup_done', false);
                   Navigator.of(context).pushAndRemoveUntil(_gpmActivityRoute(const RevivedSetupScreen()), (_) => false);
@@ -1952,69 +1956,286 @@ class RevivedSettingsScreen extends StatelessWidget {
   Widget _gpmSwitch(String title, String subtitle, bool value, ValueChanged<bool> onChanged) => SwitchListTile(
         activeColor: _gpmOrange,
         activeTrackColor: _gpmOrange.withOpacity(0.45),
-        title: Text(title, style: const TextStyle(color: _gpmText, fontSize: 15.5)),
-        subtitle: Text(subtitle, style: const TextStyle(color: _gpmSub, fontSize: 13)),
+        title: Text(title, style: TextStyle(color: _gpmText, fontSize: 15.5)),
+        subtitle: Text(subtitle, style: TextStyle(color: _gpmSub, fontSize: 13)),
         value: value,
         onChanged: onChanged,
       );
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// 6. OTA UPDATE CHECKER (cashhwocky/PlayMusicRevived)
+// 6. FULL-SCREEN 2015 ANDROID IN-APP UPDATER (Manual check only, no notifs)
 // ═════════════════════════════════════════════════════════════════════════════
 const String _kUpdateRepo = 'cashhwocky/PlayMusicRevived';
 const MethodChannel _kRevivedMediaCh = MethodChannel('com.alexlmp.app/media');
 
 Future<void> checkRevivedUpdate(BuildContext context, {bool manual = false}) async {
+  if (!manual) return; // Never auto-notify or pop up in the background
   try {
     final res = await http
-        .get(Uri.parse('https://api.github.com/repos/$_kUpdateRepo/releases/latest'), headers: {'Accept': 'application/vnd.github+json', 'User-Agent': 'PlayMusicRevived'})
+        .get(
+          Uri.parse('https://api.github.com/repos/$_kUpdateRepo/releases/latest'),
+          headers: {'Accept': 'application/vnd.github+json', 'User-Agent': 'PlayMusicRevived'},
+        )
         .timeout(const Duration(seconds: 10));
     if (res.statusCode != 200) {
-      if (manual && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No published releases yet')));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No published releases found yet')));
+      }
       return;
     }
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     final tag = (data['tag_name'] ?? '').toString().replaceFirst(RegExp(r'^[vV]'), '');
+    final notes = (data['body'] ?? 'Bug fixes, audio improvements, and classic Play Music updates.').toString().trim();
     String? apkUrl;
     for (final a in (data['assets'] as List? ?? const [])) {
-      if (a is Map && (a['name'] ?? '').toString().toLowerCase().endsWith('.apk')) {
+      if (a is Map && (a['name'] ?? '').toString().toLowerCase().contains('universal') && (a['name'] ?? '').toString().toLowerCase().endsWith('.apk')) {
         apkUrl = a['browser_download_url']?.toString();
         break;
       }
     }
-    if (tag.isEmpty || apkUrl == null) return;
+    apkUrl ??= (data['assets'] as List? ?? const [])
+        .whereType()
+        .map((a) => a['browser_download_url']?.toString())
+        .firstWhere((u) => u != null && u.toLowerCase().endsWith('.apk'), orElse: () => null);
+    if (tag.isEmpty || apkUrl == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No APK asset found in latest release')));
+      }
+      return;
+    }
+
     const builtRaw = String.fromEnvironment('APP_BUILD_VER', defaultValue: '0.0.0');
     final installed = builtRaw.replaceFirst(RegExp(r'^[vV]'), '');
-    if (tag == installed) {
-      if (manual && context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Already on v$installed')));
+    bool isNewer(String latest, String current) {
+      final a = latest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+      final b = current.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+      final len = max(a.length, b.length);
+      for (var i = 0; i < len; i++) {
+        final av = i < a.length ? a[i] : 0;
+        final bv = i < b.length ? b[i] : 0;
+        if (av != bv) return av > bv;
+      }
+      return false;
+    }
+
+    if (!isNewer(tag, installed)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Play Music Revived is up to date (v$installed)')));
+      }
       return;
     }
     if (!context.mounted) return;
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Update available (v$tag)'),
-        content: Text((data['body'] ?? 'New Play Music Revived release available.').toString()),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('LATER', style: TextStyle(color: _gpmSub))),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final req = await http.Client().send(http.Request('GET', Uri.parse(apkUrl!)));
-              final dir = await getTemporaryDirectory();
-              final file = File('${dir.path}/PlayMusicRevived-$tag.apk');
-              final sink = file.openWrite();
-              await for (final c in req.stream) {
-                sink.add(c);
-              }
-              await sink.close();
-              await _kRevivedMediaCh.invokeMethod('installApk', {'path': file.path});
-            },
-            child: const Text('UPDATE', style: TextStyle(color: _gpmOrange, fontWeight: FontWeight.w700)),
-          ),
-        ],
+    Navigator.of(context).push(_gpmActivityRoute(PlayMusicUpdateScreen(version: tag, notes: notes, apkUrl: apkUrl)));
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not check for updates right now')));
+    }
+  }
+}
+
+class PlayMusicUpdateScreen extends StatefulWidget {
+  final String version;
+  final String notes;
+  final String apkUrl;
+  const PlayMusicUpdateScreen({super.key, required this.version, required this.notes, required this.apkUrl});
+  @override
+  State<PlayMusicUpdateScreen> createState() => _PlayMusicUpdateScreenState();
+}
+
+class _PlayMusicUpdateScreenState extends State<PlayMusicUpdateScreen> {
+  bool _downloading = false;
+  double _progress = 0;
+  String _status = '';
+
+  Future<void> _downloadAndInstall() async {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _downloading = true;
+      _progress = 0;
+      _status = 'Downloading update…';
+    });
+    try {
+      final req = http.Request('GET', Uri.parse(widget.apkUrl));
+      final streamed = await http.Client().send(req);
+      final total = streamed.contentLength ?? 0;
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/PlayMusicRevived-${widget.version}.apk');
+      final sink = file.openWrite();
+      int received = 0;
+      await for (final chunk in streamed.stream) {
+        sink.add(chunk);
+        received += chunk.length;
+        if (total > 0 && mounted) {
+          final pct = (received / total).clamp(0.0, 1.0);
+          setState(() {
+            _progress = pct;
+            _status = 'Downloading update… ${(pct * 100).round()}%';
+          });
+        }
+      }
+      await sink.close();
+      if (!mounted) return;
+      setState(() => _status = 'Opening Android package installer…');
+      await _kRevivedMediaCh.invokeMethod('installApk', {'path': file.path});
+      if (mounted) setState(() => _downloading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _downloading = false;
+          _status = 'Download failed: $e';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.of(context).padding.top;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(statusBarColor: _gpmOrangeDark, statusBarIconBrightness: Brightness.light),
+      child: Scaffold(
+        backgroundColor: _gpmBg,
+        body: Column(
+          children: [
+            // Classic 2015 Material 1 Orange Update Banner
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(16, top + 8, 16, 24),
+              decoration: const BoxDecoration(
+                color: _gpmOrange,
+                boxShadow: [BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 2))],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!_downloading)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+                  const SizedBox(height: 14),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), shape: BoxShape.circle),
+                          child: const Icon(Icons.system_update, color: Colors.white, size: 28),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('App update available',
+                                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 3),
+                              Text('Play Music Revived v${widget.version}',
+                                  style: TextStyle(color: Colors.white.withOpacity(0.88), fontSize: 14)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Release Notes Material 1 Card
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(14),
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(2, 4, 2, 8),
+                    child: Text("WHAT'S NEW",
+                        style: TextStyle(color: _gpmOrange, fontSize: 12.5, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+                  ),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _gpmWhite,
+                      borderRadius: BorderRadius.circular(2),
+                      boxShadow: const [BoxShadow(color: Color(0x1F000000), blurRadius: 3, offset: Offset(0, 1.5))],
+                    ),
+                    child: Text(
+                      widget.notes,
+                      style: TextStyle(color: _gpmText, fontSize: 14.5, height: 1.5),
+                    ),
+                  ),
+                  if (_status.isNotEmpty) ...[
+                    const SizedBox(height: 18),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: Text(_status, style: TextStyle(color: _gpmText, fontSize: 13.5, fontWeight: FontWeight.w500)),
+                    ),
+                    const SizedBox(height: 8),
+                    if (_downloading)
+                      LinearProgressIndicator(
+                        value: _progress > 0 ? _progress : null,
+                        minHeight: 5,
+                        backgroundColor: _gpmDivider,
+                        valueColor: const AlwaysStoppedAnimation<Color>(_gpmOrange),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+
+            // Classic Android Bottom Wizard Action Bar
+            Container(
+              decoration: BoxDecoration(
+                color: _gpmWhite,
+                border: Border(top: BorderSide(color: _gpmDivider, width: 1)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: _gpmSub,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                        onPressed: _downloading ? null : () => Navigator.of(context).pop(),
+                        child: const Text('NOT NOW', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _gpmOrange,
+                          foregroundColor: Colors.white,
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        ),
+                        onPressed: _downloading ? null : _downloadAndInstall,
+                        child: Text(
+                          _downloading ? 'DOWNLOADING…' : 'DOWNLOAD & INSTALL',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
-  } catch (_) {}
+  }
 }
