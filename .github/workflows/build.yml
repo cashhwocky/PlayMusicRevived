@@ -1,0 +1,580 @@
+name: Build Play Music Release APK
+
+on:
+  push:
+    branches: [ main, master ]
+    # Pushing a version tag (v2.8.2, ...) also publishes a GitHub Release.
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to create the release
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.3'
+          channel: 'stable'
+
+      - name: Create clean Flutter scaffold
+        run: |
+          flutter create --org com.alexlmp.app --project-name alex_lmp app_build
+
+      - name: Copy project files into scaffold
+        run: |
+          cp custom/pubspec.yaml app_build/pubspec.yaml
+          cp custom/main.dart app_build/lib/main.dart
+          cp custom/tab_dock.dart app_build/lib/tab_dock.dart
+          cp custom/tidal_style.dart app_build/lib/tidal_style.dart
+          cp custom/revived_shell.dart app_build/lib/revived_shell.dart
+          cp custom/ai_music_chat.dart app_build/lib/ai_music_chat.dart
+          cp custom/ai_features.dart app_build/lib/ai_features.dart
+          cp custom/AndroidManifest.xml app_build/android/app/src/main/AndroidManifest.xml
+          rm -rf app_build/android/app/src/main/kotlin
+          mkdir -p app_build/android/app/src/main/kotlin/com/alexlmp/app
+          cp custom/MainActivity.kt app_build/android/app/src/main/kotlin/com/alexlmp/app/MainActivity.kt
+          cp custom/YtMusicBridge.kt app_build/android/app/src/main/kotlin/com/alexlmp/app/YtMusicBridge.kt
+          cp custom/AlexWidget.kt app_build/android/app/src/main/kotlin/com/alexlmp/app/AlexWidget.kt
+          cp custom/UpdateWorker.kt app_build/android/app/src/main/kotlin/com/alexlmp/app/UpdateWorker.kt
+          # Home screen widget layouts / icons
+          mkdir -p app_build/android/app/src/main/res
+          cp -r custom/res/. app_build/android/app/src/main/res/
+
+      - name: Upgrade Android build tooling (needed by NewPipeExtractor)
+        working-directory: app_build/android
+        run: |
+          # NewPipeExtractor needs core library desugaring with desugar_jdk_libs_nio,
+          # which needs a newer Android Gradle Plugin than the Flutter 3.24 template ships.
+          sed -i -E 's/(id "com\.android\.application" version ")[^"]+(")/\18.3.2\2/' settings.gradle
+          sed -i -E 's/(id "org\.jetbrains\.kotlin\.android" version ")[^"]+(")/\11.9.24\2/' settings.gradle
+          sed -i -E 's#distributionUrl=.*#distributionUrl=https\\://services.gradle.org/distributions/gradle-8.4-all.zip#' gradle/wrapper/gradle-wrapper.properties
+          printf '\nkotlin.jvm.target.validation.mode=warning\nandroid.suppressUnsupportedCompileSdk=35\n' >> gradle.properties
+          printf '\nallprojects {\n    repositories {\n        maven { url "https://jitpack.io" }\n    }\n}\n' >> build.gradle
+          echo "--- settings.gradle"; cat settings.gradle
+          echo "--- gradle-wrapper.properties"; cat gradle/wrapper/gradle-wrapper.properties
+
+      - name: Generate bitLMP Adaptive Launch Icons
+        run: |
+          RES="app_build/android/app/src/main/res"
+          mkdir -p "$RES/drawable"
+          mkdir -p "$RES/mipmap-anydpi-v26"
+
+          cat << 'EOF' > "$RES/drawable/ic_launcher_background.xml"
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <path android:pathData="M0,0h108v108h-108z" android:fillColor="#000000"/>
+          </vector>
+          EOF
+
+          cat << 'EOF' > "$RES/drawable/ic_launcher_foreground.xml"
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:aapt="http://schemas.android.com/aapt"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <path android:pathData="M78.09,54.00 L77.38,55.02 L76.73,55.99 L76.23,56.93 L75.95,57.87 L75.89,58.85 L76.04,59.91 L76.32,61.04 L76.64,62.24 L76.90,63.48 L76.99,64.72 L76.85,65.90 L76.43,66.95 L75.73,67.84 L74.78,68.55 L73.66,69.09 L72.46,69.49 L71.25,69.81 L70.13,70.13 L69.15,70.53 L68.33,71.07 L67.65,71.79 L67.09,72.69 L66.57,73.74 L66.05,74.87 L65.44,75.98 L64.72,76.99 L63.86,77.80 L62.86,78.34 L61.75,78.57 L60.57,78.51 L59.36,78.20 L58.18,77.73 L57.05,77.20 L55.99,76.73 L54.98,76.40 L54.00,76.29 L53.02,76.40 L52.01,76.73 L50.95,77.20 L49.82,77.73 L48.64,78.20 L47.43,78.51 L46.25,78.57 L45.14,78.34 L44.14,77.80 L43.28,76.99 L42.56,75.98 L41.95,74.87 L41.43,73.74 L40.91,72.69 L40.35,71.79 L39.67,71.07 L38.85,70.53 L37.87,70.13 L36.75,69.81 L35.54,69.49 L34.34,69.09 L33.22,68.55 L32.27,67.84 L31.57,66.95 L31.15,65.90 L31.01,64.72 L31.10,63.48 L31.36,62.24 L31.68,61.04 L31.96,59.91 L32.11,58.85 L32.05,57.87 L31.77,56.93 L31.27,55.99 L30.62,55.02 L29.91,54.00 L29.24,52.92 L28.73,51.79 L28.46,50.64 L28.49,49.50 L28.85,48.42 L29.49,47.43 L30.36,46.55 L31.36,45.76 L32.38,45.04 L33.32,44.36 L34.11,43.65 L34.70,42.86 L35.09,41.95 L35.31,40.91 L35.43,39.75 L35.54,38.51 L35.73,37.26 L36.06,36.06 L36.60,35.01 L37.35,34.16 L38.32,33.56 L39.45,33.22 L40.68,33.10 L41.95,33.13 L43.19,33.24 L44.36,33.32 L45.42,33.28 L46.38,33.06 L47.26,32.61 L48.09,31.96 L48.93,31.15 L49.82,30.27 L50.76,29.43 L51.79,28.73 L52.88,28.26 L54.00,28.10 L55.12,28.26 L56.21,28.73 L57.24,29.43 L58.18,30.27 L59.07,31.15 L59.91,31.96 L60.74,32.61 L61.62,33.06 L62.58,33.28 L63.64,33.32 L64.81,33.24 L66.05,33.13 L67.32,33.10 L68.55,33.22 L69.68,33.56 L70.65,34.16 L71.40,35.01 L71.94,36.06 L72.27,37.26 L72.46,38.51 L72.57,39.75 L72.69,40.91 L72.91,41.95 L73.30,42.86 L73.89,43.65 L74.68,44.36 L75.62,45.04 L76.64,45.76 L77.64,46.55 L78.51,47.43 L79.15,48.42 L79.51,49.50 L79.54,50.64 L79.27,51.79 L78.76,52.92 Z" android:fillColor="#FF2A5F"/>
+              <group android:pivotX="54" android:pivotY="54" android:scaleX="0.72" android:scaleY="0.72">
+                  <path android:pathData="M40,50 L40,58 M48,42 L48,66 M56,34 L56,74 M64,48 L64,60 M72,52 L72,56" android:strokeWidth="5.4" android:strokeLineCap="round" android:strokeColor="#FFFFFF"/>
+              </group>
+          </vector>
+          EOF
+
+          cat << 'EOF' > "$RES/mipmap-anydpi-v26/ic_launcher.xml"
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@drawable/ic_launcher_background"/>
+              <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+              <monochrome android:drawable="@drawable/ic_alt_mono"/>
+          </adaptive-icon>
+          EOF
+
+          cat << 'EOF' > "$RES/mipmap-anydpi-v26/ic_launcher_round.xml"
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@drawable/ic_launcher_background"/>
+              <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+              <monochrome android:drawable="@drawable/ic_alt_mono"/>
+          </adaptive-icon>
+          EOF
+
+          python3 - << 'PYEOF'
+          import os, struct, zlib, math
+
+          def make_png(size):
+              pixels = bytearray(size * size * 4)
+              cx = cy = size / 2.0
+              for y in range(size):
+                  for x in range(size):
+                      dx, dy = x - cx, y - cy
+                      dist = math.hypot(dx, dy)
+                      idx = (y * size + x) * 4
+                      if dist > size * 0.48:
+                          pixels[idx:idx+4] = bytes([0, 0, 0, 0])
+                          continue
+                      pixels[idx:idx+4] = bytes([0, 0, 0, 255])
+                      if dist <= size * 0.30:
+                          pixels[idx:idx+4] = bytes([255, 255, 255, 255])
+                      nx = (x - cx) / (size * 0.30)
+                      ny = abs(y - cy) / (size * 0.30)
+                      for bx, bh in [(-0.33, 0.36), (0.0, 0.55), (0.33, 0.44)]:
+                          if abs(nx - bx) < 0.1 and ny < bh:
+                              pixels[idx:idx+4] = bytes([255, 42, 95, 255])
+
+              raw = bytearray()
+              for y in range(size):
+                  raw.append(0)
+                  raw.extend(pixels[y*size*4:(y+1)*size*4])
+              def chunk(tag, data):
+                  return struct.pack("!I", len(data)) + tag + data + struct.pack("!I", zlib.crc32(tag + data) & 0xffffffff)
+              ihdr = struct.pack("!IIBBBBB", size, size, 8, 6, 0, 0, 0)
+              return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + chunk(b"IEND", b"")
+
+          sizes = {
+              "mipmap-mdpi": 48,
+              "mipmap-hdpi": 72,
+              "mipmap-xhdpi": 96,
+              "mipmap-xxhdpi": 144,
+              "mipmap-xxxhdpi": 192,
+          }
+          base = "app_build/android/app/src/main/res"
+          for folder, sz in sizes.items():
+              p = os.path.join(base, folder)
+              os.makedirs(p, exist_ok=True)
+              data = make_png(sz)
+              with open(os.path.join(p, "ic_launcher.png"), "wb") as f:
+                  f.write(data)
+              with open(os.path.join(p, "ic_launcher_round.png"), "wb") as f:
+                  f.write(data)
+          PYEOF
+
+      - name: Generate app icon choices and launch screen
+        run: |
+          python3 - << 'PYEOF'
+          import os
+          R = "app_build/android/app/src/main/res"
+          # Full-bleed: the colour fills the whole icon (no circle inside a square),
+          # so it looks right in any launcher shape.
+          icons = [
+              ("classic", ["#101830"], None, None, ["#567CFF"]),
+              ("midnight", ["#000000"], None, None, ["#FFFFFF"]),
+              ("sunset", ["#FF8A3D", "#E8407A"], None, None, ["#FFD27A", "#FFFFFF"]),
+              ("aurora", ["#0B2430"], None, None, ["#3CF2C0", "#8A6CFF"]),
+              ("neon", ["#07000F"], None, None, ["#FF2BD6", "#2BE8FF"]),
+              ("mint", ["#DFF7EA"], None, None, ["#0E7A4F"]),
+              ("ember", ["#2A0D08"], None, None, ["#FFB03A", "#FF3D2E"]),
+              ("gold", ["#1A160C"], None, None, ["#F8E3A3", "#C9962E"]),
+              ("ocean", ["#0B3D91", "#1CB5E0"], None, None, ["#FFFFFF"]),
+              ("white", ["#FFFFFF"], None, None, ["#111318"]),
+              # Default: Material You lilac, dark bars on a purple cookie.
+              ("bloom", ["#000000"], "#FF2A5F", None, ["#FFFFFF"]),
+              ("prism", ["#1B0B3B", "#0F4C81"], None, None, ["#FF7AD9", "#7AF0FF"]),
+              ("halo", ["#0A0F1F"], None, ["#7CF7D4", "#5B8CFF", "#C084FC"], ["#FFFFFF"]),
+              ("frost", ["#E8F4FF", "#C7D2FE"], None, None, ["#2563EB", "#7C3AED"]),
+              ("rose", ["#2B0A1E"], "#FF6FA5", None, ["#2B0A1E"]),
+              ("matrix", ["#020B05"], None, None, ["#39FF14", "#00C46A"]),
+              # Default: bitLMP, white disc with purple bars on black.
+              ("bitlmp", ["#000000"], None, None, ["#FFFFFF"]),
+          ]
+          # bitLMP mark: a disc with three sound bars cut into it.
+          def rr(x, y, w, h, r):
+              return ("M%.2f,%.2f h%.2f a%.2f,%.2f 0 0 1 %.2f,%.2f v%.2f a%.2f,%.2f 0 0 1 -%.2f,%.2f "
+                      "h-%.2f a%.2f,%.2f 0 0 1 -%.2f,-%.2f v-%.2f a%.2f,%.2f 0 0 1 %.2f,-%.2f Z") % (
+                  x + r, y, w - 2 * r, r, r, r, r, h - 2 * r, r, r, r, r, w - 2 * r, r, r, r, r, h - 2 * r, r, r, r, r)
+          MARK_BARS = "".join(rr(x - 2.8, 54 - hh - 2.8, 5.6, 2 * hh + 5.6, 2.8) for x, hh in [(45, 7), (54, 12), (63, 9)])
+          MARK_DISC = "M54,27 a27,27 0 1 1 0,54 a27,27 0 1 1 0,-54 Z"
+          COOKIE = "M78.09,54.00 L77.38,55.02 L76.73,55.99 L76.23,56.93 L75.95,57.87 L75.89,58.85 L76.04,59.91 L76.32,61.04 L76.64,62.24 L76.90,63.48 L76.99,64.72 L76.85,65.90 L76.43,66.95 L75.73,67.84 L74.78,68.55 L73.66,69.09 L72.46,69.49 L71.25,69.81 L70.13,70.13 L69.15,70.53 L68.33,71.07 L67.65,71.79 L67.09,72.69 L66.57,73.74 L66.05,74.87 L65.44,75.98 L64.72,76.99 L63.86,77.80 L62.86,78.34 L61.75,78.57 L60.57,78.51 L59.36,78.20 L58.18,77.73 L57.05,77.20 L55.99,76.73 L54.98,76.40 L54.00,76.29 L53.02,76.40 L52.01,76.73 L50.95,77.20 L49.82,77.73 L48.64,78.20 L47.43,78.51 L46.25,78.57 L45.14,78.34 L44.14,77.80 L43.28,76.99 L42.56,75.98 L41.95,74.87 L41.43,73.74 L40.91,72.69 L40.35,71.79 L39.67,71.07 L38.85,70.53 L37.87,70.13 L36.75,69.81 L35.54,69.49 L34.34,69.09 L33.22,68.55 L32.27,67.84 L31.57,66.95 L31.15,65.90 L31.01,64.72 L31.10,63.48 L31.36,62.24 L31.68,61.04 L31.96,59.91 L32.11,58.85 L32.05,57.87 L31.77,56.93 L31.27,55.99 L30.62,55.02 L29.91,54.00 L29.24,52.92 L28.73,51.79 L28.46,50.64 L28.49,49.50 L28.85,48.42 L29.49,47.43 L30.36,46.55 L31.36,45.76 L32.38,45.04 L33.32,44.36 L34.11,43.65 L34.70,42.86 L35.09,41.95 L35.31,40.91 L35.43,39.75 L35.54,38.51 L35.73,37.26 L36.06,36.06 L36.60,35.01 L37.35,34.16 L38.32,33.56 L39.45,33.22 L40.68,33.10 L41.95,33.13 L43.19,33.24 L44.36,33.32 L45.42,33.28 L46.38,33.06 L47.26,32.61 L48.09,31.96 L48.93,31.15 L49.82,30.27 L50.76,29.43 L51.79,28.73 L52.88,28.26 L54.00,28.10 L55.12,28.26 L56.21,28.73 L57.24,29.43 L58.18,30.27 L59.07,31.15 L59.91,31.96 L60.74,32.61 L61.62,33.06 L62.58,33.28 L63.64,33.32 L64.81,33.24 L66.05,33.13 L67.32,33.10 L68.55,33.22 L69.68,33.56 L70.65,34.16 L71.40,35.01 L71.94,36.06 L72.27,37.26 L72.46,38.51 L72.57,39.75 L72.69,40.91 L72.91,41.95 L73.30,42.86 L73.89,43.65 L74.68,44.36 L75.62,45.04 L76.64,45.76 L77.64,46.55 L78.51,47.43 L79.15,48.42 L79.51,49.50 L79.54,50.64 L79.27,51.79 L78.76,52.92 Z"
+          BARS = "M40,50 L40,58 M48,42 L48,66 M56,34 L56,74 M64,48 L64,60 M72,52 L72,56"
+          CIRCLE = "M54,20 C35.22,20 20,35.22 20,54 C20,72.78 35.22,88 54,88 C72.78,88 88,72.78 88,54 C88,35.22 72.78,20 54,20 Z"
+          RING = "M54,22 C36.33,22 22,36.33 22,54 C22,71.67 36.33,86 54,86 C71.67,86 86,71.67 86,54 C86,36.33 71.67,22 54,22 Z"
+          HEAD = '<?xml version="1.0" encoding="utf-8"?>\n'
+          # Bars drawn 1.35x bigger (still inside the launcher's safe zone).
+          GROUP_OPEN = '<group android:pivotX="54" android:pivotY="54" android:scaleX="1.35" android:scaleY="1.35">'
+
+          def write(path, text):
+              os.makedirs(os.path.dirname(path), exist_ok=True)
+              with open(path, "w") as f:
+                  f.write(text)
+
+          def grad(attr, cols, x1, y1, x2, y2):
+              items = "".join('<item android:offset="%.1f" android:color="#FF%s"/>' % (i / (len(cols) - 1), c[1:]) for i, c in enumerate(cols))
+              return ('<aapt:attr name="%s"><gradient android:type="linear" android:startX="%s" android:startY="%s" '
+                      'android:endX="%s" android:endY="%s">%s</gradient></aapt:attr>') % (attr, x1, y1, x2, y2, items)
+
+          def vec(body):
+              return (HEAD + '<vector xmlns:android="http://schemas.android.com/apk/res/android" '
+                      'xmlns:aapt="http://schemas.android.com/aapt" android:width="108dp" android:height="108dp" '
+                      'android:viewportWidth="108" android:viewportHeight="108">' + body + '</vector>\n')
+
+          for k, bg, disc, ring, bars in icons:
+              if len(bg) == 1:
+                  b = '<path android:pathData="M0,0h108v108h-108z" android:fillColor="%s"/>' % bg[0]
+              else:
+                  b = '<path android:pathData="M0,0h108v108h-108z">%s</path>' % grad("android:fillColor", bg, 0, 0, 108, 108)
+              write("%s/drawable/ic_alt_%s_bg.xml" % (R, k), vec(b))
+              # Disc in the icon's main colour, bars cut out (or purple on bitLMP).
+              if len(bars) == 1:
+                  f = '<path android:pathData="%s" android:fillType="evenOdd" android:fillColor="%s"/>' % (MARK_DISC + MARK_BARS, bars[0])
+              else:
+                  f = '<path android:pathData="%s" android:fillType="evenOdd">%s</path>' % (
+                      MARK_DISC + MARK_BARS, grad("android:fillColor", bars, 27, 27, 81, 81))
+              if k == "bloom":
+                  # The original Bloom icon: lilac cookie with sound bars.
+                  f = '<path android:pathData="%s" android:fillColor="%s"/>' % (COOKIE, disc)
+                  f += GROUP_OPEN.replace("1.35", "0.72")
+                  f += '<path android:pathData="%s" android:strokeWidth="5.4" android:strokeLineCap="round" android:strokeColor="%s"/>' % (BARS, bars[0])
+                  f += '</group>'
+              if k == "bitlmp":
+                  f = '<path android:pathData="%s" android:fillColor="#FFFFFF"/>' % MARK_DISC
+                  f += '<path android:pathData="%s" android:fillColor="#FF2A5F"/>' % MARK_BARS
+              write("%s/drawable/ic_alt_%s_fg.xml" % (R, k), vec(f))
+              write("%s/mipmap-anydpi-v26/ic_alt_%s.xml" % (R, k), HEAD +
+                    '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">'
+                    '<background android:drawable="@drawable/ic_alt_%s_bg"/>'
+                    '<foreground android:drawable="@drawable/ic_alt_%s_fg"/>'
+                    '<monochrome android:drawable="@drawable/ic_alt_mono"/></adaptive-icon>\n' % (k, k))
+              # Android 7 (no adaptive icons): background + foreground stacked.
+              write("%s/mipmap-anydpi/ic_alt_%s.xml" % (R, k), HEAD +
+                    '<layer-list xmlns:android="http://schemas.android.com/apk/res/android">'
+                    '<item android:drawable="@drawable/ic_alt_%s_bg"/>'
+                    '<item android:drawable="@drawable/ic_alt_%s_fg"/></layer-list>\n' % (k, k))
+
+          # Themed (Material You) icon on Android 13+.
+          write("%s/drawable/ic_alt_mono.xml" % R, vec(
+              '<path android:pathData="%s" android:fillType="evenOdd" android:fillColor="#FF000000"/>' % (MARK_DISC + MARK_BARS)))
+          # Main launcher icon = bitLMP.
+          for name in ("ic_launcher", "ic_launcher_round"):
+              write("%s/mipmap-anydpi-v26/%s.xml" % (R, name), HEAD +
+                    '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">'
+                    '<background android:drawable="@drawable/ic_alt_bitlmp_bg"/>'
+                    '<foreground android:drawable="@drawable/ic_alt_bitlmp_fg"/>'
+                    '<monochrome android:drawable="@drawable/ic_alt_mono"/></adaptive-icon>\n')
+
+          # Black native launch screen so it flows into the animated one.
+          for d in ["drawable", "drawable-v21"]:
+              write("%s/%s/launch_background.xml" % (R, d), HEAD +
+                    '<layer-list xmlns:android="http://schemas.android.com/apk/res/android">'
+                    '<item android:drawable="@android:color/black"/></layer-list>\n')
+          STYLES = (HEAD + '<resources>'
+                    '<style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">'
+                    '<item name="android:windowBackground">@drawable/launch_background</item>%s</style>'
+                    '<style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">'
+                    '<item name="android:windowBackground">@android:color/black</item></style>'
+                    '</resources>\n')
+          V31 = '<item name="android:windowSplashScreenBackground">@android:color/black</item>'
+          for d, extra in [("values", ""), ("values-night", ""), ("values-v31", V31), ("values-night-v31", V31)]:
+              write("%s/%s/styles.xml" % (R, d), STYLES % extra)
+          print("App icon + launch screen resources generated")
+          PYEOF
+
+          # Drawn-in-code icons: Orb, Note, Vinyl, Borealis
+          python3 custom/make_icons_extra.py app_build/android/app/src/main/res
+          echo "extra icons done"
+
+      - name: Apply Play Music 4-Bar Icon
+        run: |
+          python3 - << 'PYEOF'
+          import os, struct, zlib
+          R = "app_build/android/app/src/main/res"
+          os.makedirs(f"{R}/drawable", exist_ok=True)
+          os.makedirs(f"{R}/mipmap-anydpi-v26", exist_ok=True)
+          HEAD = '<?xml version="1.0" encoding="utf-8"?>\n'
+
+          def make_bg(color):
+              return HEAD + (
+                  '<vector xmlns:android="http://schemas.android.com/apk/res/android" '
+                  'android:width="108dp" android:height="108dp" '
+                  'android:viewportWidth="108" android:viewportHeight="108">'
+                  f'<path android:pathData="M0,0h108v108h-108z" android:fillColor="{color}"/>'
+                  '</vector>\n'
+              )
+
+          def make_fg(b1, b2, b3, b4):
+              return HEAD + (
+                  '<vector xmlns:android="http://schemas.android.com/apk/res/android" '
+                  'android:width="108dp" android:height="108dp" '
+                  'android:viewportWidth="108" android:viewportHeight="108">'
+                  f'<path android:pathData="M37,48 L37,60" android:strokeWidth="6.4" android:strokeLineCap="round" android:strokeColor="{b1}"/>'
+                  f'<path android:pathData="M48,39 L48,69" android:strokeWidth="6.4" android:strokeLineCap="round" android:strokeColor="{b2}"/>'
+                  f'<path android:pathData="M59,34 L59,74" android:strokeWidth="6.4" android:strokeLineCap="round" android:strokeColor="{b3}"/>'
+                  f'<path android:pathData="M70,45 L70,63" android:strokeWidth="6.4" android:strokeLineCap="round" android:strokeColor="{b4}"/>'
+                  '</vector>\n'
+              )
+
+          def make_adaptive(bg, fg):
+              return HEAD + (
+                  '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n'
+                  f'    <background android:drawable="@drawable/{bg}"/>\n'
+                  f'    <foreground android:drawable="@drawable/{fg}"/>\n'
+                  '    <monochrome android:drawable="@drawable/ic_alt_mono"/>\n'
+                  '</adaptive-icon>\n'
+              )
+
+          # Classic Google Play Music Orange Icon
+          bg_xml = make_bg("#FF5722")
+          fg_xml = """<vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#FF7043" android:pathData="M34,26 L84,54 L34,82 Z"/>
+              <path android:fillColor="#FFFFFF" android:pathData="M54,34 C43,34 35,42 35,53 L35,66 C35,68.8 37.2,71 40,71 L45,71 L45,56 L40,56 L40,53 C40,45.2 46.2,39 54,39 C61.8,39 68,45.2 68,53 L68,56 L63,56 L63,71 L68,71 C70.8,71 73,68.8 73,66 L73,53 C73,42 65,34 54,34 Z"/>
+          </vector>"""
+          for n in ("ic_launcher_background", "ic_alt_bloom_bg", "ic_alt_bitlmp_bg"):
+              open(f"{R}/drawable/{n}.xml", "w").write(bg_xml)
+          for n in ("ic_launcher_foreground", "ic_alt_bloom_fg", "ic_alt_bitlmp_fg"):
+              open(f"{R}/drawable/{n}.xml", "w").write(fg_xml)
+          open(f"{R}/drawable/ic_alt_mono.xml", "w").write(fg_xml)
+
+          # Force adaptive icon XMLs to point directly to our Crimson default + alternates
+          for fname in ("ic_launcher.xml", "ic_launcher_round.xml"):
+              open(f"{R}/mipmap-anydpi-v26/{fname}", "w").write(make_adaptive("ic_launcher_background", "ic_launcher_foreground"))
+          open(f"{R}/mipmap-anydpi-v26/ic_alt_bloom.xml", "w").write(make_adaptive("ic_alt_bloom_bg", "ic_alt_bloom_fg"))
+          open(f"{R}/mipmap-anydpi-v26/ic_alt_bitlmp.xml", "w").write(make_adaptive("ic_alt_bitlmp_bg", "ic_alt_bitlmp_fg"))
+
+          # Pure-Python PNG writer so legacy mipmap PNGs & Android installer also show Crimson 4-bar
+          def write_png(path, size):
+              bg = (10, 10, 13, 255)
+              bars = [
+                  (0.28, 0.41, 0.59, (212, 212, 220, 255)),
+                  (0.42, 0.29, 0.71, (255, 42, 95, 255)),
+                  (0.56, 0.22, 0.78, (255, 255, 255, 255)),
+                  (0.70, 0.37, 0.63, (255, 42, 95, 255)),
+              ]
+              bw = 0.046
+              raw = bytearray()
+              for y in range(size):
+                  raw.append(0)
+                  ny = (y + 0.5) / size
+                  for x in range(size):
+                      nx = (x + 0.5) / size
+                      px = bg
+                      for cx, y0, y1, col in bars:
+                          if abs(nx - cx) <= bw and y0 <= ny <= y1:
+                              px = col
+                              break
+                          if (nx - cx)**2 + (ny - y0)**2 <= bw**2 or (nx - cx)**2 + (ny - y1)**2 <= bw**2:
+                              px = col
+                              break
+                      raw.extend(px)
+              def chunk(t, d):
+                  return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
+              ihdr = struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0)
+              data = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + chunk(b"IEND", b"")
+              with open(path, "wb") as f:
+                  f.write(data)
+
+          for folder, sz in [("mipmap-mdpi", 48), ("mipmap-hdpi", 72), ("mipmap-xhdpi", 96), ("mipmap-xxhdpi", 144), ("mipmap-xxxhdpi", 192)]:
+              d = f"{R}/{folder}"
+              os.makedirs(d, exist_ok=True)
+              write_png(f"{d}/ic_launcher.png", sz)
+              write_png(f"{d}/ic_launcher_round.png", sz)
+
+          print("Applied Crimson 4-bar default icon (adaptive XML + all mipmap PNGs)")
+          PYEOF
+
+      - name: Configure Gradle for Android SDK 35
+        run: |
+          cat << 'EOF' > app_build/android/app/build.gradle
+          plugins {
+              id "com.android.application"
+              id "kotlin-android"
+              id "dev.flutter.flutter-gradle-plugin"
+          }
+
+          android {
+              namespace = "com.alexlmp.app"
+              compileSdk = 35
+              ndkVersion = "26.1.10909125"
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+                  coreLibraryDesugaringEnabled = true
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+
+              defaultConfig {
+                  applicationId = "com.alexlmp.app"
+                  minSdk = 24
+                  targetSdk = 35
+                  // Filled in by the workflow: build number + kAppVersion from main.dart.
+                  versionCode = (System.getenv("VERSION_CODE") ?: "2").toInteger()
+                  versionName = System.getenv("VERSION_NAME") ?: "2.0.0"
+              }
+
+              // One permanent key (from GitHub secrets) so every update installs
+              // over the last one and Play Protect learns to recognise the app.
+              signingConfigs {
+                  release {
+                      def ks = file("release.jks")
+                      if (ks.exists()) {
+                          storeFile = ks
+                          storePassword = System.getenv("KEYSTORE_PASSWORD")
+                          keyAlias = System.getenv("KEY_ALIAS")
+                          keyPassword = System.getenv("KEY_PASSWORD")
+                      }
+                  }
+              }
+
+              buildTypes {
+                  release {
+                      signingConfig = file("release.jks").exists()
+                          ? signingConfigs.release
+                          : signingConfigs.debug
+                      minifyEnabled = false
+                      shrinkResources = false
+                  }
+              }
+          }
+
+          flutter {
+              source = "../.."
+          }
+
+          dependencies {
+              coreLibraryDesugaring "com.android.tools:desugar_jdk_libs_nio:2.0.4"
+              implementation "com.github.teamnewpipe:NewPipeExtractor:v0.26.5"
+              implementation "androidx.work:work-runtime-ktx:2.9.1"
+              // FFmpeg audio decoder for formats the phone can't decode itself
+              // (ALAC .m4a, etc.). Same ExoPlayer version as just_audio 0.9.42.
+              implementation "org.jellyfin.exoplayer:exoplayer-ffmpeg-extension:2.18.7+1"
+          }
+          EOF
+
+      - name: Set up signing key and version
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > app_build/android/app/release.jks
+            echo "Signing with the permanent release key."
+          else
+            echo "::warning::KEYSTORE_BASE64 secret not set - signing with a throwaway debug key. Updates won't install over older versions."
+          fi
+          VERSION_NAME=$(grep -oP "kAppVersion = '\K[^']+" custom/main.dart || echo "2.0.0")
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$((10000 + ${{ github.run_number }}))" >> "$GITHUB_ENV"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then AUTO_TAG="$GITHUB_REF_NAME"; else AUTO_TAG="v${VERSION_NAME}.${{ github.run_number }}"; fi
+          echo "AUTO_TAG=$AUTO_TAG" >> "$GITHUB_ENV"
+          echo "Building version $VERSION_NAME"
+          # On a version tag, the tag must match kAppVersion in main.dart.
+          if [[ "$GITHUB_REF" == refs/tags/v* && "$GITHUB_REF_NAME" != "v$VERSION_NAME" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match kAppVersion $VERSION_NAME in custom/main.dart. Update kAppVersion (and pubspec) first."
+            exit 1
+          fi
+
+      - name: Set Revived Package Name (Side-by-Side Install)
+        run: |
+          python3 - << 'PYEOF'
+          import glob, re
+          old_id = None
+          new_id = None
+          for g in ('app_build/android/app/build.gradle', 'app_build/android/app/build.gradle.kts'):
+              try:
+                  txt = open(g, 'r', encoding='utf-8').read()
+              except FileNotFoundError:
+                  continue
+              def repl(match):
+                  global old_id, new_id
+                  old_id = match.group(2)
+                  new_id = old_id if old_id.endswith('.playmusic') else old_id + '.playmusic'
+                  return match.group(1) + new_id + match.group(3)
+              new_txt = re.sub(r"(applicationId\s*=?\s*[\x27\x22])([^\x27\x22]+)([\x27\x22])", repl, txt, count=1)
+              if new_id:
+                  open(g, 'w', encoding='utf-8').write(new_txt)
+                  print(f'Updated {g}: {old_id} -> {new_id}')
+                  break
+          if old_id and new_id and old_id != new_id:
+              mf = 'app_build/android/app/src/main/AndroidManifest.xml'
+              try:
+                  mtxt = open(mf, 'r', encoding='utf-8').read()
+                  mnew = re.sub(r'(android:authorities="[^"]*?)' + re.escape(old_id), r'\1${applicationId}', mtxt)
+                  if mnew != mtxt:
+                      open(mf, 'w', encoding='utf-8').write(mnew)
+                      print('Updated provider authorities in AndroidManifest.xml')
+              except FileNotFoundError:
+                  pass
+              for kt in glob.glob('app_build/android/app/src/main/**/MainActivity.*', recursive=True):
+                  ktxt = open(kt, 'r', encoding='utf-8').read()
+                  knew = ktxt.replace(f'{old_id}.fileprovider', f'{new_id}.fileprovider').replace(f'{old_id}.provider', f'{new_id}.provider')
+                  if knew != ktxt:
+                      open(kt, 'w', encoding='utf-8').write(knew)
+                      print('Updated FileProvider in', kt)
+          PYEOF
+
+      - name: Build APK
+        working-directory: app_build
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: alexlmp
+        run: |
+          flutter pub get
+          # just_audio never turns on extension decoders, so the FFmpeg
+          # decoder would sit unused. Switch them on (MODE_ON = only used when
+          # the phone has no decoder of its own for that format, like ALAC).
+          JA=$(find "${PUB_CACHE:-$HOME/.pub-cache}" -path "*just_audio-0.9.42/android/src/main/java/com/ryanheise/just_audio/AudioPlayer.java" | head -1)
+          if [ -z "$JA" ]; then echo "::error::just_audio AudioPlayer.java not found"; exit 1; fi
+          sed -i 's/new ExoPlayer.Builder(context);/new ExoPlayer.Builder(context, new DefaultRenderersFactory(context).setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON));/' "$JA"
+          sed -i 's/new DefaultRenderersFactory(context).setEnableAudioOffload(true)/new DefaultRenderersFactory(context).setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON).setEnableAudioOffload(true)/' "$JA"
+          grep -q "EXTENSION_RENDERER_MODE_ON));" "$JA" || { echo "::error::Couldn't enable the FFmpeg decoder in just_audio"; exit 1; }
+          echo "FFmpeg decoder enabled in $JA"
+          python3 - << 'PYEOF'
+          p = "android/app/src/main/AndroidManifest.xml"
+          s = open(p, encoding="utf-8").read()
+          if 'android:name="flutterEmbedding"' not in s:
+              s = s.replace("</application>", '    <meta-data android:name="flutterEmbedding" android:value="2" />\n    </application>')
+              open(p, "w", encoding="utf-8").write(s)
+          print("Manifest flutterEmbedding check:", [l.strip() for l in s.splitlines() if "flutterEmbedding" in l])
+          PYEOF
+          flutter build apk --release --dart-define=APP_BUILD_VER=${{ env.AUTO_TAG }}
+          flutter build apk --release --dart-define=APP_BUILD_VER=${{ env.AUTO_TAG }} --split-per-abi --verbose
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PlayMusicRevived-Release-APK
+          path: app_build/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Prepare Release APKs and Auto-Tag
+        if: github.event_name == 'push'
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            AUTO_TAG="$GITHUB_REF_NAME"
+          else
+            AUTO_TAG="v${VERSION_NAME}.${{ github.run_number }}"
+          fi
+          echo "AUTO_TAG=$AUTO_TAG" >> "$GITHUB_ENV"
+          mkdir -p release_apks
+          cp app_build/build/app/outputs/flutter-apk/app-release.apk "release_apks/PlayMusicRevived-${AUTO_TAG}-universal.apk"
+          cp app_build/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "release_apks/PlayMusicRevived-${AUTO_TAG}-arm64-v8a.apk"
+          cp app_build/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "release_apks/PlayMusicRevived-${AUTO_TAG}-armeabi-v7a.apk"
+          cp app_build/build/app/outputs/flutter-apk/app-x86_64-release.apk "release_apks/PlayMusicRevived-${AUTO_TAG}-x86_64.apk"
+
+      - name: Auto-Publish GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.AUTO_TAG }}
+          name: Play Music ${{ env.AUTO_TAG }}
+          generate_release_notes: true
+          make_latest: true
+          files: release_apks/*.apk
