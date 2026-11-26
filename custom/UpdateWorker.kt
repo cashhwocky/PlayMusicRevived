@@ -57,7 +57,7 @@ class UpdateWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params)
                     }
                 }
             }
-            notify(ctx, "AlexLMP Revived $latest is available", "Tap to update.", url, latest)
+            notify(ctx, "Play Music Revived $latest is available", "Tap to update.", url, latest)
             Result.success()
         } catch (_: Exception) {
             Result.retry()
@@ -109,7 +109,7 @@ class UpdateWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params)
                     android.app.NotificationChannel(
                         channelId, "App updates",
                         android.app.NotificationManager.IMPORTANCE_DEFAULT
-                    ).apply { description = "New AlexLMP Revived versions" }
+                    ).apply { description = "New Play Music Revived versions" }
                 )
             }
             // Opens bitLMP, which downloads and installs the update itself.
@@ -217,7 +217,7 @@ class UpdateInstallReceiver : android.content.BroadcastReceiver() {
                     android.content.pm.PackageInstaller.EXTRA_STATUS_MESSAGE
                 ) ?: "status $status"
                 android.widget.Toast.makeText(
-                    ctx, "AlexLMP Revived update didn't install: $msg", android.widget.Toast.LENGTH_LONG
+                    ctx, "Play Music Revived update didn't install: $msg", android.widget.Toast.LENGTH_LONG
                 ).show()
             }
         }

@@ -40,7 +40,7 @@
             android:layout_marginTop="2dp"
             android:ellipsize="end"
             android:singleLine="true"
-            android:text="Open AlexLMP to start"
+            android:text="Open Play Music to start"
             android:textColor="#B3FFFFFF"
             android:textSize="13sp" />
 

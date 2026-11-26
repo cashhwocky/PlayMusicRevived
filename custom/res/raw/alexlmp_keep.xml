@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Notification icons are looked up by name, so keep them in release builds. -->
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@drawable/ic_n_heart,@drawable/ic_n_heart_outline,@drawable/ic_stat_alexlmp,@xml/automotive_app_desc" />
+    tools:keep="@drawable/ic_n_heart,@drawable/ic_n_heart_outline,@drawable/ic_stat_alexlmp,@drawable/ic_stat_playmusic,@drawable/ic_n_thumb_up,@drawable/ic_n_thumb_up_outline,@drawable/ic_n_thumb_down_outline,@xml/automotive_app_desc" />

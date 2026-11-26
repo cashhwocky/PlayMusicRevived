@@ -109,7 +109,7 @@ class AlexWidget : AppWidgetProvider() {
             val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             val views = RemoteViews(context.packageName, R.layout.widget_player)
             views.setTextViewText(R.id.w_title, p.getString("title", "Nothing playing"))
-            views.setTextViewText(R.id.w_artist, p.getString("artist", "Open AlexLMP Revived to start"))
+            views.setTextViewText(R.id.w_artist, p.getString("artist", "Open Play Music Revived to start"))
             val playing = p.getBoolean("playing", false)
             views.setImageViewResource(
                 R.id.w_play,

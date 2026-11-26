@@ -88,9 +88,9 @@ Future<void> main() async {
         // players) lose the session when Android puts the app to sleep.
         androidNotificationOngoing: false,
         androidStopForegroundOnPause: false,
-        // White bitLMP bars (the full-colour app icon shows up as a plain
-        // white dot in the notification and on Android Auto).
-        androidNotificationIcon: 'drawable/ic_stat_alexlmp',
+        // Play Music headphones (white silhouette for the status bar,
+        // media notification and Android Auto).
+        androidNotificationIcon: 'drawable/ic_stat_playmusic',
       ),
     );
   } catch (_) {
@@ -1135,6 +1135,15 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
       _publishState();
       return null;
     }
+    if (name == 'dislike') {
+      // Play Music: thumbs down drops the thumbs up and skips the song.
+      final t = currentTrack;
+      if (t != null && appState.isLiked(t.id)) appState.toggleLike(t.id);
+      HapticFeedback.lightImpact();
+      await skipToNext();
+      _publishState();
+      return null;
+    }
     return super.customAction(name, extras);
   }
 
@@ -1271,17 +1280,21 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
     _notifLiked = liked;
     return PlaybackState(
       controls: [
+        // Google Play Music layout: thumbs up, prev, play/pause, next, thumbs down.
+        MediaControl.custom(
+          androidIcon:
+              liked ? 'drawable/ic_n_thumb_up' : 'drawable/ic_n_thumb_up_outline',
+          label: liked ? 'Remove thumbs up' : 'Thumbs up',
+          name: 'like',
+        ),
         MediaControl.skipToPrevious,
         if (playing) MediaControl.pause else MediaControl.play,
         MediaControl.skipToNext,
-        // Same heart as the players: filled when liked, outline when not.
         MediaControl.custom(
-          androidIcon:
-              liked ? 'drawable/ic_n_heart' : 'drawable/ic_n_heart_outline',
-          label: liked ? 'Unlike' : 'Like',
-          name: 'like',
+          androidIcon: 'drawable/ic_n_thumb_down_outline',
+          label: 'Thumbs down',
+          name: 'dislike',
         ),
-        MediaControl.stop,
       ],
       // Every action is always available, whatever the current state, so
       // third-party controllers never grey out or ignore a button.
@@ -1298,7 +1311,7 @@ class MyAudioHandler extends BaseAudioHandler with SeekHandler {
         MediaAction.setShuffleMode,
         MediaAction.setRepeatMode,
       },
-      androidCompactActionIndices: const [0, 1, 2],
+      androidCompactActionIndices: const [1, 2, 3],
       processingState: state,
       playing: playing,
       updatePosition: player.position,
@@ -30898,7 +30911,7 @@ class _ClockPainter extends CustomPainter {
 // When you publish a release: bump kAppVersion here to the SAME number as the
 // release tag (tag v2.2.0  ->  kAppVersion '2.2.0').
 
-const String kAppVersion = '1.1.0';
+const String kAppVersion = '1.2.0';
 /// "Support my project" card at the very top of Settings.
 class SupportCard extends StatefulWidget {
   const SupportCard({super.key});
