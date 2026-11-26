@@ -1477,7 +1477,7 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                                                   child: Icon(liked ? Icons.thumb_up : Icons.thumb_up_off_alt, color: liked ? _gpmOrange : _gpmText, size: 24),
                                                 ),
                                                 onPressed: () {
-                                                  HapticFeedback.lightImpact();
+                                                  // HapticFeedback.lightImpact();
                                                   appState.toggleLike(track.id);
                                                 },
                                               ),
@@ -1494,7 +1494,7 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                                                   splashFactory: InkRipple.splashFactory,
                                                   splashColor: Colors.white38,
                                                   onTap: () {
-                                                    HapticFeedback.lightImpact();
+                                                    // HapticFeedback.lightImpact();
                                                     playing ? audioHandler.pause() : audioHandler.play();
                                                   },
                                                   child: SizedBox(
@@ -2000,7 +2000,7 @@ class RevivedSettingsScreen extends StatelessWidget {
 
   Widget _gpmSwitch(String title, String subtitle, bool value, ValueChanged<bool> onChanged) => InkWell(
         onTap: () {
-          HapticFeedback.selectionClick();
+          // HapticFeedback.selectionClick();
           onChanged(!value);
         },
         child: Padding(
@@ -2123,7 +2123,7 @@ class _PlayMusicUpdateScreenState extends State<PlayMusicUpdateScreen> {
   String _status = '';
 
   Future<void> _downloadAndInstall() async {
-    HapticFeedback.lightImpact();
+    // HapticFeedback.lightImpact();
     setState(() {
       _downloading = true;
       _progress = 0;
