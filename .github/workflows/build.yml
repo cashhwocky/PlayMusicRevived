@@ -290,6 +290,7 @@ jobs:
       - name: Apply Play Music 4-Bar Icon
         run: |
           python3 - << 'PYEOF'
+          import glob
           import os, struct, zlib
           R = "app_build/android/app/src/main/res"
           os.makedirs(f"{R}/drawable", exist_ok=True)
