@@ -341,6 +341,7 @@ jobs:
 
       - name: Lock In Exact Play Music Icon (Adaptive + Round + Legacy)
         run: |
+          python3 -m pip install -q --break-system-packages pillow 2>/dev/null || python3 -m pip install -q pillow
           python3 - << 'PYICON'
           import glob, os, shutil
           from PIL import Image
