@@ -1503,7 +1503,7 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                                                 icon: Icon(Icons.thumb_down_off_alt, color: _gpmText, size: 24),
                                                 onPressed: () {
                                                   audioHandler.skipToNext();
-                                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)), content: Text('Skipped track')));
+                                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)), content: Text('Skipped track')));
                                                 },
                                               ),
                                             ],
@@ -1914,7 +1914,7 @@ class RevivedSettingsScreen extends StatelessWidget {
                 title: Text('Clear stream cache', style: TextStyle(color: _gpmText, fontSize: 15.5)),
                 onTap: () async {
                   await const MethodChannel('com.alexlmp.app/ytmusic').invokeMethod('ytClearCache');
-                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)), content: Text('Stream cache cleared')));
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)), content: Text('Stream cache cleared')));
                 },
               ),
               Divider(height: 1, color: _gpmDivider),
@@ -2021,7 +2021,7 @@ Future<void> checkRevivedUpdate(BuildContext context, {bool manual = false}) asy
         .timeout(const Duration(seconds: 10));
     if (res.statusCode != 200) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)), content: Text('No published releases found yet')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)), content: Text('No published releases found yet')));
       }
       return;
     }
@@ -2041,7 +2041,7 @@ Future<void> checkRevivedUpdate(BuildContext context, {bool manual = false}) asy
         .firstWhere((u) => u != null && u.toLowerCase().endsWith('.apk'), orElse: () => null);
     if (tag.isEmpty || apkUrl == null) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)), content: Text('No APK asset found in latest release')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)), content: Text('No APK asset found in latest release')));
       }
       return;
     }
@@ -2070,7 +2070,7 @@ Future<void> checkRevivedUpdate(BuildContext context, {bool manual = false}) asy
     Navigator.of(context).push(_gpmActivityRoute(PlayMusicUpdateScreen(version: tag, notes: notes, apkUrl: apkUrl)));
   } catch (_) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)), content: Text('Could not check for updates right now')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)), content: Text('Could not check for updates right now')));
     }
   }
 }
