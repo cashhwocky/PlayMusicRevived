@@ -24,6 +24,9 @@ Color get _gpmArtBg => _gpmDark ? const Color(0xFF303030) : const Color(0xFFE0E0
 Color get _gpmArtCircle => _gpmDark ? const Color(0xFF525252) : const Color(0xFF9E9E9E);
 
 YtAlbumPage? _memLikedPage;
+int _gpmCrossfadeSecs() => int.tryParse(appState.str('crossfade_secs', '5')) ?? 5;
+void _gpmSetCrossfadeSecs(int v) => appState.setStr('crossfade_secs', v.clamp(1, 12).toString());
+
 DateTime? _gpmSuppressPlayerUntil;
 bool _gpmShouldSuppressPlayer() {
   final u = _gpmSuppressPlayerUntil;
@@ -1935,13 +1938,13 @@ class RevivedSettingsScreen extends StatelessWidget {
                 onTap: () => showPlaybackSheet(context),
               ),
               Divider(height: 1, color: _gpmDivider),
-              _gpmSwitch('Crossfade', appState.b('crossfade_on') ? 'Blend songs over ${appState.i('crossfade_secs', 5)}s' : 'Smoothly blend between songs', appState.b('crossfade_on'), (v) => appState.setB('crossfade_on', v)),
+              _gpmSwitch('Crossfade', appState.b('crossfade_on') ? 'Blend songs over ${_gpmCrossfadeSecs()}s' : 'Smoothly blend between songs', appState.b('crossfade_on'), (v) => appState.setB('crossfade_on', v)),
               if (appState.b('crossfade_on'))
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                   child: Row(
                     children: [
-                      Text('Duration: ${appState.i('crossfade_secs', 5)}s', style: TextStyle(color: _gpmSub, fontSize: 13, fontWeight: FontWeight.w600)),
+                      Text('Duration: ${_gpmCrossfadeSecs()}s', style: TextStyle(color: _gpmSub, fontSize: 13, fontWeight: FontWeight.w600)),
                       Expanded(
                         child: Slider(
                           activeColor: _gpmOrange,
@@ -1949,8 +1952,8 @@ class RevivedSettingsScreen extends StatelessWidget {
                           min: 1,
                           max: 12,
                           divisions: 11,
-                          value: appState.i('crossfade_secs', 5).clamp(1, 12).toDouble(),
-                          onChanged: (v) => appState.setInt('crossfade_secs', v.round()),
+                          value: _gpmCrossfadeSecs().clamp(1, 12).toDouble(),
+                          onChanged: (v) => _gpmSetCrossfadeSecs(v.round()),
                         ),
                       ),
                     ],
