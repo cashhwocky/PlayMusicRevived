@@ -275,7 +275,7 @@ jobs:
           fi
           VERSION_NAME=$(grep -oP "kAppVersion = '\K[^']+" custom/main.dart || echo "2.0.0")
           echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
-          echo "VERSION_CODE=$((10000 + ${{ github.run_number }}))" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$((100000 + ${{ github.run_number }}))" >> "$GITHUB_ENV"
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then AUTO_TAG="$GITHUB_REF_NAME"; else AUTO_TAG="v${VERSION_NAME}.${{ github.run_number }}"; fi
           echo "AUTO_TAG=$AUTO_TAG" >> "$GITHUB_ENV"
           echo "Building version $VERSION_NAME"
@@ -386,8 +386,8 @@ jobs:
               open(p, "w", encoding="utf-8").write(s)
           print("Manifest flutterEmbedding check:", [l.strip() for l in s.splitlines() if "flutterEmbedding" in l])
           PYEOF
-          flutter build apk --release --dart-define=APP_BUILD_VER=${{ env.AUTO_TAG }}
-          flutter build apk --release --dart-define=APP_BUILD_VER=${{ env.AUTO_TAG }} --split-per-abi --verbose
+          flutter build apk --build-number=$VERSION_CODE --release --dart-define=APP_BUILD_VER=${{ env.AUTO_TAG }}
+          flutter build apk --build-number=$VERSION_CODE --release --dart-define=APP_BUILD_VER=${{ env.AUTO_TAG }} --split-per-abi --verbose
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
