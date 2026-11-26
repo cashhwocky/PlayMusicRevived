@@ -587,6 +587,9 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
               backgroundColor: _gpmOrange,
               foregroundColor: Colors.white,
               elevation: 3,
+              scrolledUnderElevation: 3,
+              shadowColor: const Color(0x33000000),
+              shape: const Border(),
               titleSpacing: _searchMode ? 0 : NavigationToolbar.kMiddleSpacing,
               leading: _searchMode
                   ? IconButton(
@@ -635,6 +638,8 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
               ],
               bottom: (!_searchMode && _drawerIndex == 1)
                   ? TabBar(
+                      dividerColor: Colors.transparent,
+                      dividerHeight: 0,
                       controller: _tabCtrl,
                       isScrollable: true,
                       tabAlignment: TabAlignment.start,
