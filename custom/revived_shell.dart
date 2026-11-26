@@ -1754,7 +1754,7 @@ class RevivedPlayerScreen extends StatefulWidget {
 }
 
 class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
-  double _dragY = 0;
+  double _dragY = 0.0;
   bool _draggingY = false;
 
   @override
@@ -1801,28 +1801,31 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
               } else {
                 setState(() {
                   _draggingY = false;
-                  _dragY = 0;
+                  _dragY = 0.0;
                 });
               }
             },
             child: AnimatedContainer(
-              duration: Duration(milliseconds: _draggingY ? 0 : 200),
+              duration: Duration(milliseconds: _draggingY ? 0 : 220),
+              curve: Curves.easeOutCubic,
               transform: Matrix4.identity()..translate(0.0, _dragY),
               color: const Color(0xFFFFFFFF),
               child: track == null
                   ? const Center(
-                      child: Text('Nothing playing', style: TextStyle(color: Color(0xFF757575))),
+                      child: Text(
+                        'Nothing playing',
+                        style: TextStyle(color: Color(0xFF757575)),
+                      ),
                     )
                   : SafeArea(
                       child: Column(
                         children: [
-                          // ── TOP WHITE BAR (Flush thumb + Title/Artist + Queue + Menu)
                           Container(
                             height: 58,
                             decoration: const BoxDecoration(
                               color: Color(0xFFFFFFFF),
                               border: Border(
-                                bottom: BorderSide(color: Color(0xFFE0E0E0), width: 0.7),
+                                bottom: BorderSide(color: Color(0xFFE0E0E0), width: 0.8),
                               ),
                             ),
                             child: Row(
@@ -1837,40 +1840,36 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onTap: () => Navigator.of(context).pop(),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          track.title,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: Color(0xFF212121),
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w500,
-                                          ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        track.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Color(0xFF212121),
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
                                         ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          track.artist,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: Color(0xFF757575),
-                                            fontSize: 12.5,
-                                          ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        track.artist,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Color(0xFF757575),
+                                          fontSize: 12.5,
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.queue_music, color: Color(0xFF212121), size: 24),
-                                  onPressed: () => _showGpm2018QueueSheet(context), track),
+                                  onPressed: () => _showGpm2018QueueSheet(context),
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.more_vert, color: Color(0xFF212121), size: 22),
@@ -1879,8 +1878,6 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                               ],
                             ),
                           ),
-
-                          // ── FULL-BLEED ALBUM ART + OVERLAY REPEAT / LYRICS / SHUFFLE
                           Expanded(
                             child: GestureDetector(
                               onHorizontalDragEnd: (d) {
@@ -1968,8 +1965,6 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                               ),
                             ),
                           ),
-
-                          // ── ORANGE SEAM SCRUBBER + TIMESTAMPS
                           StreamBuilder<Duration>(
                             stream: audioHandler.player.positionStream,
                             builder: (context, snap) {
@@ -2006,7 +2001,11 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                                       children: [
                                         Text(
                                           formatDuration(pos),
-                                          style: const TextStyle(color: Color(0xFFFF5722), fontSize: 11, fontWeight: FontWeight.w500),
+                                          style: const TextStyle(
+                                            color: Color(0xFFFF5722),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                         ),
                                         Text(
                                           formatDuration(dur),
@@ -2019,8 +2018,6 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                               );
                             },
                           ),
-
-                          // ── WHITE BOTTOM TRANSPORT DECK (Thumbs Up | Prev | Orange Play | Next | Thumbs Down)
                           Container(
                             color: const Color(0xFFFFFFFF),
                             padding: const EdgeInsets.fromLTRB(10, 4, 10, 14),
