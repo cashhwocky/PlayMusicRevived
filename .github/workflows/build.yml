@@ -343,7 +343,7 @@ jobs:
         run: |
           python3 -m pip install -q --break-system-packages pillow 2>/dev/null || python3 -m pip install -q pillow
           python3 - << 'PYICON'
-          import glob, os, shutil
+          import glob, os, re, shutil
           from PIL import Image
           R = "app_build/android/app/src/main/res"
           src = "custom/assets/gpm_logo.png"
@@ -389,6 +389,11 @@ jobs:
               canvas.paste(ic, ((sz - ic.width)//2, (sz - ic.height)//2), ic)
               canvas.save(f"{d}/ic_launcher.png")
               canvas.save(f"{d}/ic_launcher_round.png")
+          mf = "app_build/android/app/src/main/AndroidManifest.xml"
+          if os.path.isfile(mf):
+              ms = open(mf, "r", encoding="utf-8").read()
+              ms = re.sub(r"@mipmap/ic_alt_[A-Za-z0-9_]+", "@mipmap/ic_launcher", ms)
+              open(mf, "w", encoding="utf-8").write(ms)
           print("Wrote clean adaptive + round + legacy launcher icons!")
           PYICON
 
