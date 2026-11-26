@@ -24,6 +24,50 @@ Color get _gpmArtBg => _gpmDark ? const Color(0xFF303030) : const Color(0xFFE0E0
 Color get _gpmArtCircle => _gpmDark ? const Color(0xFF525252) : const Color(0xFF9E9E9E);
 
 YtAlbumPage? _memLikedPage;
+Widget _gpm2017RepoLink(BuildContext context) {
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+    child: Material(
+      color: _gpmCard,
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(2),
+        side: const BorderSide(color: _gpmDivider, width: 1),
+      ),
+      child: InkWell(
+        onTap: () async {
+          const url = 'https://github.com/cashhwocky?tab=repositories';
+          try {
+            await const MethodChannel('com.alexlmp.app/media').invokeMethod('openUrl', {'url': url});
+          } catch (_) {
+            await Clipboard.setData(const ClipboardData(text: url));
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(Icons.code, color: _gpmOrange, size: 22),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Check out @cashhwocky's other stuff!", style: TextStyle(color: _gpmText, fontSize: 15, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 2),
+                    Text('github.com/cashhwocky?tab=repositories', style: TextStyle(color: _gpmOrange, fontSize: 12.5)),
+                  ],
+                ),
+              ),
+              Icon(Icons.open_in_new, color: _gpmSub, size: 18),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 int _gpmCrossfadeSecs() => int.tryParse(appState.str('crossfade_secs', '5')) ?? 5;
 void _gpmSetCrossfadeSecs(int v) => appState.setStr('crossfade_secs', v.clamp(1, 12).toString());
 
@@ -1199,9 +1243,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
     if (t == null) return const SizedBox.shrink();
     return GestureDetector(
       onTap: () => openPlayer(context),
-      onVerticalDragEnd: (d) {
-        if ((d.primaryVelocity ?? 0) < -250) _openGpmPlayer(context);
-      },
+      
       child: Container(
         decoration: BoxDecoration(
           color: _gpmWhite,
