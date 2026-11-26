@@ -257,68 +257,167 @@ class _RevivedSetupScreenState extends State<RevivedSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final top = MediaQuery.of(context).padding.top;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(statusBarColor: _gpmOrangeDark, statusBarIconBrightness: Brightness.light),
       child: Scaffold(
-        backgroundColor: _gpmWhite,
-        appBar: AppBar(
-          backgroundColor: _gpmOrange,
-          elevation: 2,
-          title: const Text('Google Play Music', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
-        ),
+        backgroundColor: const Color(0xFFFAFAFA),
         body: ValueListenableBuilder<YtAccount>(
           valueListenable: ytAccount,
           builder: (_, acc, __) {
-            return Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 12),
-                  const RevivedBrandMark(size: 56),
-                  const SizedBox(height: 20),
-                  const Text('Welcome to Play Music', style: TextStyle(color: _gpmText, fontSize: 26, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  const Text('Stream from YouTube Music or play audio files stored on your device in the classic Material 1 Play Music interface.',
-                      style: TextStyle(color: _gpmSub, fontSize: 14.5, height: 1.4)),
-                  const SizedBox(height: 24),
-                  Card(
-                    color: _gpmBg,
-                    elevation: 1,
-                    child: ListTile(
-                      leading: Icon(_storageOk ? Icons.check_circle : Icons.folder_open, color: _gpmOrange),
-                      title: Text(_storageOk ? 'Storage access granted' : 'Allow local music access', style: const TextStyle(color: _gpmText, fontWeight: FontWeight.w500)),
-                      subtitle: const Text('Scan MP3 / FLAC / WAV files on device', style: TextStyle(color: _gpmSub, fontSize: 12.5)),
-                      onTap: _storageOk ? null : _grantStorage,
+            final signedIn = acc.signedIn;
+            return Column(
+              children: [
+                // Classic 2015 Material 1 Orange Setup Header Banner
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.fromLTRB(24, top + 28, 24, 26),
+                  decoration: const BoxDecoration(
+                    color: _gpmOrange,
+                    boxShadow: [BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 2))],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.18),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.headphones, color: Colors.white, size: 32),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Play Music Revived',
+                        style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w500, letterSpacing: 0.1),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Listen to YouTube Music & your device library',
+                        style: TextStyle(color: Colors.white.withOpacity(0.88), fontSize: 14, fontWeight: FontWeight.w400),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Classic Material 1 Setup List (1px dividers, sharp checkboxes, orange section headers)
+                Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 18, 16, 6),
+                        child: Text('DEVICE PERMISSIONS',
+                            style: TextStyle(color: _gpmOrange, fontSize: 12.5, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+                      ),
+                      Container(
+                        color: _gpmWhite,
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          leading: Icon(
+                            _storageOk ? Icons.check_box : Icons.check_box_outline_blank,
+                            color: _storageOk ? _gpmOrange : _gpmSub,
+                            size: 24,
+                          ),
+                          title: Text(
+                            _storageOk ? 'Storage & media allowed' : 'Allow local music access',
+                            style: const TextStyle(color: _gpmText, fontSize: 15.5, fontWeight: FontWeight.w400),
+                          ),
+                          subtitle: const Text(
+                            'Scan audio files & show lock-screen controls',
+                            style: TextStyle(color: _gpmSub, fontSize: 13),
+                          ),
+                          onTap: _storageOk ? null : _grantStorage,
+                        ),
+                      ),
+                      const Divider(height: 1, color: _gpmDivider),
+
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 20, 16, 6),
+                        child: Text('GOOGLE ACCOUNT',
+                            style: TextStyle(color: _gpmOrange, fontSize: 12.5, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+                      ),
+                      Container(
+                        color: _gpmWhite,
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          leading: _signingIn
+                              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.2, color: _gpmOrange))
+                              : Icon(
+                                  signedIn ? Icons.check_box : Icons.account_circle,
+                                  color: signedIn ? _gpmOrange : _gpmSub,
+                                  size: 26,
+                                ),
+                          title: Text(
+                            signedIn ? (acc.name ?? 'Signed in') : 'Choose account',
+                            style: const TextStyle(color: _gpmText, fontSize: 15.5, fontWeight: FontWeight.w400),
+                          ),
+                          subtitle: Text(
+                            signedIn ? 'YouTube Music playlists & Thumbs up synced' : 'Tap to sign in with YouTube Music',
+                            style: const TextStyle(color: _gpmSub, fontSize: 13),
+                          ),
+                          trailing: signedIn
+                              ? null
+                              : const Text('SIGN IN', style: TextStyle(color: _gpmOrange, fontSize: 13, fontWeight: FontWeight.w600)),
+                          onTap: (signedIn || _signingIn) ? null : _signIn,
+                        ),
+                      ),
+                      const Divider(height: 1, color: _gpmDivider),
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 14, 16, 12),
+                        child: Text(
+                          'You can skip signing in and still play local music or search YouTube Music anytime.',
+                          style: TextStyle(color: _gpmSub, fontSize: 12.5, height: 1.4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Classic Android Setup Wizard Bottom Navigation Bar (SKIP | GET STARTED)
+                Container(
+                  decoration: const BoxDecoration(
+                    color: _gpmWhite,
+                    border: Border(top: BorderSide(color: _gpmDivider, width: 1)),
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              foregroundColor: _gpmSub,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            onPressed: _finish,
+                            child: const Text('SKIP', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.6)),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _gpmOrange,
+                              foregroundColor: Colors.white,
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                            ),
+                            onPressed: _finish,
+                            child: Text(
+                              signedIn ? 'GET STARTED' : 'CONTINUE',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.6),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  Card(
-                    color: _gpmBg,
-                    elevation: 1,
-                    child: ListTile(
-                      leading: _signingIn
-                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.2, color: _gpmOrange))
-                          : Icon(acc.signedIn ? Icons.check_circle : Icons.account_circle, color: _gpmOrange),
-                      title: Text(acc.signedIn ? 'Signed in as ${acc.name ?? "User"}' : 'Sign in to YouTube Music',
-                          style: const TextStyle(color: _gpmText, fontWeight: FontWeight.w500)),
-                      subtitle: Text(acc.signedIn ? 'Library & playlists connected' : 'Tap to connect Google account',
-                          style: const TextStyle(color: _gpmSub, fontSize: 12.5)),
-                      onTap: (acc.signedIn || _signingIn) ? null : _signIn,
-                    ),
-                  ),
-                  const Spacer(),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: _gpmOrange, foregroundColor: Colors.white, elevation: 2),
-                      onPressed: _finish,
-                      child: Text(acc.signedIn ? 'OPEN MUSIC LIBRARY' : 'SKIP FOR NOW', style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.6)),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             );
           },
         ),

@@ -520,6 +520,21 @@ jobs:
                       print('Updated FileProvider in', kt)
           PYEOF
 
+      - name: Force Play Music Revived App Name
+        run: |
+          python3 - << 'PYLABEL'
+          import re, glob
+          mf = 'app_build/android/app/src/main/AndroidManifest.xml'
+          txt = open(mf, 'r', encoding='utf-8').read()
+          txt = re.sub(r'android:label="[^"]+"', 'android:label="Play Music Revived"', txt)
+          open(mf, 'w', encoding='utf-8').write(txt)
+          for sf in glob.glob('app_build/android/app/src/main/res/values*/strings.xml'):
+              st = open(sf, 'r', encoding='utf-8').read()
+              st = re.sub(r'(<string name="app_name">)[^<]+(</string>)', r'\1Play Music Revived\2', st)
+              open(sf, 'w', encoding='utf-8').write(st)
+          print('Forced app name -> Play Music Revived in Manifest & strings.xml')
+          PYLABEL
+
       - name: Build APK
         working-directory: app_build
         env:

@@ -82,7 +82,7 @@ Future<void> main() async {
       builder: () => MyAudioHandler(),
       config: const AudioServiceConfig(
         androidNotificationChannelId: 'com.alexlmp.app.channel.audio',
-        androidNotificationChannelName: 'AlexLMP Revived Playback',
+        androidNotificationChannelName: 'Play Music Revived Playback',
         // Stay in the foreground while paused so the media session keeps
         // running: third-party controllers (crDroid's dynamic bar, custom
         // players) lose the session when Android puts the app to sleep.
@@ -4266,7 +4266,7 @@ class AlexLmpApp extends StatelessWidget {
         final textScale = appState.d('text_scale', 1.0);
         return MaterialApp(
           navigatorKey: appNavKey,
-          title: 'AlexLMP Revived',
+          title: 'Play Music Revived',
           debugShowCheckedModeBanner: false,
           themeMode: ThemeMode.dark,
           darkTheme: ThemeData(
