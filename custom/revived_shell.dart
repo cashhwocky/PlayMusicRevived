@@ -2098,12 +2098,12 @@ class RevivedSettingsScreen extends StatelessWidget {
               Divider(height: 1, color: _gpmDivider),
               ListTile(
                 title: Text('Re-run setup', style: TextStyle(color: _gpmText, fontSize: 15.5)),
-              _gpm2017RepoLink(context),
                 onTap: () {
                   appState.setB('setup_done', false);
                   Navigator.of(context).pushAndRemoveUntil(_gpmActivityRoute(const RevivedSetupScreen()), (_) => false);
                 },
               ),
+              _gpm2017RepoLink(context),
             ],
           ),
         ),
