@@ -13,7 +13,7 @@ import 'main.dart';
 
 // ── Classic Google Play Music Material 1 Palette ─────────────────────────────
 const Color _gpmOrange = Color(0xFFFF5722);
-const Color _gpmOrangeDark = Color(0xFFE64A19);
+const Color _gpmOrangeDark = Color(0xFFD84315);
 bool get _gpmDark => appState.b('gpm_dark_theme', false);
 Color get _gpmBg => _gpmDark ? const Color(0xFF181818) : const Color(0xFFF5F5F5);
 Color get _gpmWhite => _gpmDark ? const Color(0xFF242424) : const Color(0xFFFFFFFF);
@@ -27,21 +27,14 @@ YtAlbumPage? _memLikedPage;
 
 /// 2016 Android (Lollipop/Marshmallow) Material 1 upward slide + scale + fade activity transition
 Route<T> _gpmActivityRoute<T>(Widget page) => PageRouteBuilder<T>(
-      transitionDuration: const Duration(milliseconds: 280),
-      reverseTransitionDuration: const Duration(milliseconds: 220),
+      transitionDuration: const Duration(milliseconds: 240),
+      reverseTransitionDuration: const Duration(milliseconds: 190),
       pageBuilder: (_, __, ___) => page,
-      transitionsBuilder: (_, anim, secAnim, child) {
-        final enter = CurvedAnimation(parent: anim, curve: Curves.fastOutSlowIn, reverseCurve: Curves.easeInCubic);
-        final exit = CurvedAnimation(parent: secAnim, curve: Curves.fastOutSlowIn);
+      transitionsBuilder: (_, anim, __, child) {
+        final c = CurvedAnimation(parent: anim, curve: Curves.fastOutSlowIn, reverseCurve: Curves.easeInCubic);
         return SlideTransition(
-          position: Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero).animate(enter),
-          child: FadeTransition(
-            opacity: Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: anim, curve: const Interval(0.0, 0.65))),
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 1.0, end: 0.97).animate(exit),
-              child: child,
-            ),
-          ),
+          position: Tween<Offset>(begin: const Offset(0.0, 0.06), end: Offset.zero).animate(c),
+          child: FadeTransition(opacity: c, child: child),
         );
       },
     );
@@ -1510,7 +1503,7 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                                                 icon: Icon(Icons.thumb_down_off_alt, color: _gpmText, size: 24),
                                                 onPressed: () {
                                                   audioHandler.skipToNext();
-                                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Skipped track')));
+                                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)), content: Text('Skipped track')));
                                                 },
                                               ),
                                             ],
@@ -1921,7 +1914,7 @@ class RevivedSettingsScreen extends StatelessWidget {
                 title: Text('Clear stream cache', style: TextStyle(color: _gpmText, fontSize: 15.5)),
                 onTap: () async {
                   await const MethodChannel('com.alexlmp.app/ytmusic').invokeMethod('ytClearCache');
-                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Stream cache cleared')));
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)), content: Text('Stream cache cleared')));
                 },
               ),
               Divider(height: 1, color: _gpmDivider),
@@ -1972,13 +1965,42 @@ class RevivedSettingsScreen extends StatelessWidget {
         child: Text(title, style: const TextStyle(color: _gpmOrange, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.3)),
       );
 
-  Widget _gpmSwitch(String title, String subtitle, bool value, ValueChanged<bool> onChanged) => SwitchListTile(
-        activeColor: _gpmOrange,
-        activeTrackColor: _gpmOrange.withOpacity(0.45),
-        title: Text(title, style: TextStyle(color: _gpmText, fontSize: 15.5)),
-        subtitle: Text(subtitle, style: TextStyle(color: _gpmSub, fontSize: 13)),
-        value: value,
-        onChanged: onChanged,
+  Widget _gpmSwitch(String title, String subtitle, bool value, ValueChanged<bool> onChanged) => InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onChanged(!value);
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: TextStyle(color: _gpmText, fontSize: 15.5, fontWeight: FontWeight.w400)),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(subtitle, style: TextStyle(color: _gpmSub, fontSize: 13)),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: value ? _gpmOrange : Colors.transparent,
+                  borderRadius: BorderRadius.circular(2),
+                  border: Border.all(color: value ? _gpmOrange : _gpmSub, width: 2),
+                ),
+                child: value ? const Icon(Icons.check, color: Colors.white, size: 16) : null,
+              ),
+            ],
+          ),
+        ),
       );
 }
 
@@ -1999,7 +2021,7 @@ Future<void> checkRevivedUpdate(BuildContext context, {bool manual = false}) asy
         .timeout(const Duration(seconds: 10));
     if (res.statusCode != 200) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No published releases found yet')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)), content: Text('No published releases found yet')));
       }
       return;
     }
@@ -2019,7 +2041,7 @@ Future<void> checkRevivedUpdate(BuildContext context, {bool manual = false}) asy
         .firstWhere((u) => u != null && u.toLowerCase().endsWith('.apk'), orElse: () => null);
     if (tag.isEmpty || apkUrl == null) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No APK asset found in latest release')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)), content: Text('No APK asset found in latest release')));
       }
       return;
     }
@@ -2040,7 +2062,7 @@ Future<void> checkRevivedUpdate(BuildContext context, {bool manual = false}) asy
 
     if (!isNewer(tag, installed)) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Play Music Revived is up to date (v$installed)')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)), content: Text('Play Music Revived is up to date (v$installed)')));
       }
       return;
     }
@@ -2048,7 +2070,7 @@ Future<void> checkRevivedUpdate(BuildContext context, {bool manual = false}) asy
     Navigator.of(context).push(_gpmActivityRoute(PlayMusicUpdateScreen(version: tag, notes: notes, apkUrl: apkUrl)));
   } catch (_) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not check for updates right now')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)), content: Text('Could not check for updates right now')));
     }
   }
 }
