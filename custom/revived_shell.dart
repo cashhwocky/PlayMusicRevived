@@ -28,11 +28,11 @@ Widget _gpm2017RepoLink(BuildContext context) {
   return Padding(
     padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
     child: Material(
-      color: _gpmCard,
+      color: const Color(0xFFFFFFFF),
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(2),
-        side: const BorderSide(color: _gpmDivider, width: 1),
+        side: BorderSide(color: _gpmDivider, width: 1),
       ),
       child: InkWell(
         onTap: () async {
