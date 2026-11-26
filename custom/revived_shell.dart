@@ -148,11 +148,10 @@ class RevivedBrandMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      decoration: BoxDecoration(color: _gpmOrange, borderRadius: BorderRadius.circular(size * 0.24)),
-      child: Icon(Icons.headphones_rounded, color: Colors.white, size: size * 0.58),
+      child: Image.asset('custom/assets/gpm_logo.png', fit: BoxFit.contain),
     );
   }
 }
