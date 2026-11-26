@@ -51,14 +51,16 @@ void _openGpmPlayer(BuildContext context) {
   Navigator.of(context).push(
     PageRouteBuilder<void>(
       opaque: false,
-      barrierColor: Colors.black38,
-      transitionDuration: const Duration(milliseconds: 320),
-      reverseTransitionDuration: const Duration(milliseconds: 260),
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 340),
+      reverseTransitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (_, __, ___) => const RevivedPlayerScreen(),
       transitionsBuilder: (_, anim, __, child) {
-        final c = CurvedAnimation(parent: anim, curve: Curves.fastOutSlowIn, reverseCurve: Curves.easeInCubic);
+        final forward = CurvedAnimation(parent: anim, curve: Curves.fastOutSlowIn);
+        final reverse = CurvedAnimation(parent: anim, curve: Curves.easeInCubic);
+        final activeCurve = anim.status == AnimationStatus.reverse ? reverse : forward;
         return SlideTransition(
-          position: Tween<Offset>(begin: const Offset(0, 1.0), end: Offset.zero).animate(c),
+          position: Tween<Offset>(begin: const Offset(0.0, 1.0), end: Offset.zero).animate(activeCurve),
           child: child,
         );
       },
@@ -477,7 +479,7 @@ class RevivedAppShell extends StatefulWidget {
   State<RevivedAppShell> createState() => _RevivedAppShellState();
 }
 
-class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProviderStateMixin {
+class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final TabController _tabCtrl;
   int _drawerIndex = 1; // 0 = Listen Now (YTM Home), 1 = Music library (default, matches 27.png)
   bool _searchMode = false;
@@ -491,9 +493,12 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
   Future<List<YtShelf>>? _ytFeedFuture;
   Future<List<YtPlaylistRef>>? _ytPlFuture;
 
+  bool _backgrounded = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabCtrl = TabController(length: 5, vsync: this);
     _ytFeedFuture = YouTubeMusic.homeFeed();
     _ytPlFuture = YouTubeMusic.libraryPlaylists();
@@ -509,7 +514,17 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
+      _backgrounded = true;
+    } else if (state == AppLifecycleState.resumed) {
+      Future.delayed(const Duration(milliseconds: 350), () => _backgrounded = false);
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _debounce?.cancel();
     _searchCtrl.dispose();
     _tabCtrl.dispose();
@@ -555,7 +570,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
   void _playList(List<TrackItem> list, int index) {
     if (list.isEmpty) return;
     audioHandler.playYouTubeList(list, index);
-    _openGpmPlayer(context);
+    if (!_backgrounded) _openGpmPlayer(context);
   }
 
   @override
@@ -997,13 +1012,13 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                             Navigator.of(context).push(_gpmActivityRoute(RevivedPlaylistPage.youtube(playlistId: it.id, title: it.title, thumbnail: it.thumbnail)));
                           } else {
                             audioHandler.playYouTubeTrack(YouTubeMusic.trackFromShelf(it, it.subtitle));
-                            _openGpmPlayer(context);
+                            if (!_backgrounded) _openGpmPlayer(context);
                           }
                         },
                         onPlay: () {
                           if (it.kind == 'song' || it.kind == 'video') {
                             audioHandler.playYouTubeTrack(YouTubeMusic.trackFromShelf(it, it.subtitle));
-                            _openGpmPlayer(context);
+                            if (!_backgrounded) _openGpmPlayer(context);
                           } else if (it.kind == 'album') {
                             Navigator.of(context).push(_gpmActivityRoute(RevivedAlbumPage(url: it.id, initialTitle: it.title, initialThumb: it.thumbnail)));
                           }
@@ -1051,7 +1066,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
           for (final t in _songRes.take(10))
             _gpmSongCardRow(t, () {
               audioHandler.playYouTubeTrack(t);
-              _openGpmPlayer(context);
+              if (!_backgrounded) _openGpmPlayer(context);
             }),
         ],
         if (_albumRes.isNotEmpty) ...[
@@ -1174,7 +1189,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
     return GestureDetector(
       onTap: () => openPlayer(context),
       onVerticalDragEnd: (d) {
-        if ((d.primaryVelocity ?? 0) < -250) _openGpmPlayer(context);
+        if ((d.primaryVelocity ?? 0) < -250) if (!_backgrounded) _openGpmPlayer(context);
       },
       child: Container(
         decoration: BoxDecoration(
@@ -1622,7 +1637,7 @@ class _RevivedAlbumPageState extends State<RevivedAlbumPage> {
                             onPressed: () {
                               if (page.tracks.isEmpty) return;
                               audioHandler.playYouTubeList(page.tracks, 0, lockToScope: true);
-                              _openGpmPlayer(context);
+                              if (!_backgrounded) _openGpmPlayer(context);
                             },
                           ),
                         ],
@@ -1642,7 +1657,7 @@ class _RevivedAlbumPageState extends State<RevivedAlbumPage> {
                     trailing: IconButton(icon: Icon(Icons.more_vert, color: _gpmSub), onPressed: () => showPlayMusicTrackMenu(context, page.tracks[i])),
                     onTap: () {
                       audioHandler.playYouTubeList(page.tracks, i, lockToScope: true);
-                      _openGpmPlayer(context);
+                      if (!_backgrounded) _openGpmPlayer(context);
                     },
                   ),
                 ),
@@ -1706,7 +1721,7 @@ class _RevivedArtistPageState extends State<RevivedArtistPage> {
                       onPressed: () {
                         if (page.songs.isEmpty) return;
                         audioHandler.playYouTubeList(page.songs, 0, lockToScope: true);
-                        _openGpmPlayer(context);
+                        if (!_backgrounded) _openGpmPlayer(context);
                       },
                     ),
                   ],
@@ -1723,7 +1738,7 @@ class _RevivedArtistPageState extends State<RevivedArtistPage> {
                     trailing: IconButton(icon: Icon(Icons.more_vert, color: _gpmSub), onPressed: () => showPlayMusicTrackMenu(context, page.songs[i])),
                     onTap: () {
                       audioHandler.playYouTubeList(page.songs, i, lockToScope: true);
-                      _openGpmPlayer(context);
+                      if (!_backgrounded) _openGpmPlayer(context);
                     },
                   ),
                 ),
@@ -1808,7 +1823,7 @@ class _RevivedPlaylistPageState extends State<RevivedPlaylistPage> {
                 if (tracks.isEmpty) return;
                 audioHandler.setShuffleMode(AudioServiceShuffleMode.all);
                 audioHandler.playYouTubeList(tracks, Random().nextInt(tracks.length));
-                _openGpmPlayer(context);
+                if (!_backgrounded) _openGpmPlayer(context);
               },
             ),
           ],
@@ -1819,7 +1834,7 @@ class _RevivedPlaylistPageState extends State<RevivedPlaylistPage> {
           onPressed: () {
             if (tracks.isEmpty) return;
             audioHandler.playYouTubeList(tracks, 0);
-            _openGpmPlayer(context);
+            if (!_backgrounded) _openGpmPlayer(context);
           },
           child: const Icon(Icons.play_arrow, size: 30),
         ),
@@ -1837,7 +1852,7 @@ class _RevivedPlaylistPageState extends State<RevivedPlaylistPage> {
                 trailing: IconButton(icon: Icon(Icons.more_vert, color: _gpmSub), onPressed: () => showPlayMusicTrackMenu(context, t)),
                 onTap: () {
                   audioHandler.playYouTubeList(tracks, i);
-                  _openGpmPlayer(context);
+                  if (!_backgrounded) _openGpmPlayer(context);
                 },
               ),
             );
