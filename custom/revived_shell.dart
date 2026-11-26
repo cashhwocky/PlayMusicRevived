@@ -24,6 +24,15 @@ Color get _gpmArtBg => _gpmDark ? const Color(0xFF303030) : const Color(0xFFE0E0
 Color get _gpmArtCircle => _gpmDark ? const Color(0xFF525252) : const Color(0xFF9E9E9E);
 
 YtAlbumPage? _memLikedPage;
+DateTime? _gpmSuppressPlayerUntil;
+bool _gpmShouldSuppressPlayer() {
+  final u = _gpmSuppressPlayerUntil;
+  return u != null && DateTime.now().isBefore(u);
+}
+void _gpmArmGuard([Duration d = const Duration(milliseconds: 1100)]) {
+  _gpmSuppressPlayerUntil = DateTime.now().add(d);
+}
+
 
 /// 2016 Android (Lollipop/Marshmallow) Material 1 upward slide + scale + fade activity transition
 Route<T> _gpmActivityRoute<T>(Widget page) => PageRouteBuilder<T>(
@@ -41,6 +50,7 @@ Route<T> _gpmActivityRoute<T>(Widget page) => PageRouteBuilder<T>(
 
 /// Authentic Google Play Music slide-up Now Playing sheet transition (matches 00:00 -> 00:01)
 void _openGpmPlayer(BuildContext context) {
+  if (_gpmShouldSuppressPlayer()) return;
   Navigator.of(context).push(
     PageRouteBuilder<void>(
       opaque: false,
@@ -1925,7 +1935,27 @@ class RevivedSettingsScreen extends StatelessWidget {
                 onTap: () => showPlaybackSheet(context),
               ),
               Divider(height: 1, color: _gpmDivider),
-              _gpmSwitch('Crossfade', 'Smoothly blend between songs', appState.b('crossfade_on'), (v) => appState.setB('crossfade_on', v)),
+              _gpmSwitch('Crossfade', appState.b('crossfade_on') ? 'Blend songs over ${appState.i('crossfade_secs', 5)}s' : 'Smoothly blend between songs', appState.b('crossfade_on'), (v) => appState.setB('crossfade_on', v)),
+              if (appState.b('crossfade_on'))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  child: Row(
+                    children: [
+                      Text('Duration: ${appState.i('crossfade_secs', 5)}s', style: TextStyle(color: _gpmSub, fontSize: 13, fontWeight: FontWeight.w600)),
+                      Expanded(
+                        child: Slider(
+                          activeColor: _gpmOrange,
+                          inactiveColor: _gpmDivider,
+                          min: 1,
+                          max: 12,
+                          divisions: 11,
+                          value: appState.i('crossfade_secs', 5).clamp(1, 12).toDouble(),
+                          onChanged: (v) => appState.setInt('crossfade_secs', v.round()),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Divider(height: 1, color: _gpmDivider),
               _gpmSwitch('Skip silence', 'Trim dead air between tracks', appState.b('skip_silence'), (v) {
                 appState.setB('skip_silence', v);
