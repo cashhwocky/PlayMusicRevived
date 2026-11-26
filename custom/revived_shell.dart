@@ -24,6 +24,48 @@ const Color _gpmArtCircle = Color(0xFF9E9E9E);
 
 YtAlbumPage? _memLikedPage;
 
+/// 2016 Android (Lollipop/Marshmallow) Material 1 upward slide + scale + fade activity transition
+Route<T> _gpmActivityRoute<T>(Widget page) => PageRouteBuilder<T>(
+      transitionDuration: const Duration(milliseconds: 280),
+      reverseTransitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (_, __, ___) => page,
+      transitionsBuilder: (_, anim, secAnim, child) {
+        final enter = CurvedAnimation(parent: anim, curve: Curves.fastOutSlowIn, reverseCurve: Curves.easeInCubic);
+        final exit = CurvedAnimation(parent: secAnim, curve: Curves.fastOutSlowIn);
+        return SlideTransition(
+          position: Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero).animate(enter),
+          child: FadeTransition(
+            opacity: Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: anim, curve: const Interval(0.0, 0.65))),
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 1.0, end: 0.97).animate(exit),
+              child: child,
+            ),
+          ),
+        );
+      },
+    );
+
+/// Authentic Google Play Music slide-up Now Playing sheet transition (matches 00:00 -> 00:01)
+void _openGpmPlayer(BuildContext context) {
+  Navigator.of(context).push(
+    PageRouteBuilder<void>(
+      opaque: false,
+      barrierColor: Colors.black38,
+      transitionDuration: const Duration(milliseconds: 320),
+      reverseTransitionDuration: const Duration(milliseconds: 260),
+      pageBuilder: (_, __, ___) => const RevivedPlayerScreen(),
+      transitionsBuilder: (_, anim, __, child) {
+        final c = CurvedAnimation(parent: anim, curve: Curves.fastOutSlowIn, reverseCurve: Curves.easeInCubic);
+        return SlideTransition(
+          position: Tween<Offset>(begin: const Offset(0, 1.0), end: Offset.zero).animate(c),
+          child: child,
+        );
+      },
+    ),
+  );
+}
+
+
 /// Classic Play Music grey placeholder with circular music note icon
 Widget _gpmPlaceholder({double iconSize = 42, bool isArtist = false}) => Container(
       color: _gpmArtBg,
@@ -118,7 +160,7 @@ Future<void> _gpmGoToArtist(BuildContext context, TrackItem t) async {
   if (!t.isYouTube) {
     final local = audioHandler.tracks.where((x) => !x.isYouTube && x.artist == t.artist).toList();
     if (local.isNotEmpty) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => RevivedPlaylistPage.custom(title: t.artist, subtitle: 'Artist', tracks: local)));
+      Navigator.of(context).push(_gpmActivityRoute(RevivedPlaylistPage.custom(title: t.artist, subtitle: 'Artist', tracks: local)));
     }
     return;
   }
@@ -126,13 +168,13 @@ Future<void> _gpmGoToArtist(BuildContext context, TrackItem t) async {
     final links = await YouTubeMusic.trackLinks(t.ytVideoId!);
     if (!context.mounted) return;
     if (links.artistUrl != null && links.artistUrl!.isNotEmpty) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => RevivedArtistPage(url: links.artistUrl!, name: links.artistName ?? t.artist)));
+      Navigator.of(context).push(_gpmActivityRoute(RevivedArtistPage(url: links.artistUrl!, name: links.artistName ?? t.artist)));
       return;
     }
     final found = await YouTubeMusic.searchArtists(t.artist);
     if (!context.mounted) return;
     if (found.isNotEmpty) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => RevivedArtistPage(url: found.first.url, name: found.first.name, initialThumb: found.first.thumbnail)));
+      Navigator.of(context).push(_gpmActivityRoute(RevivedArtistPage(url: found.first.url, name: found.first.name, initialThumb: found.first.thumbnail)));
     }
   } catch (_) {}
 }
@@ -141,7 +183,7 @@ Future<void> _gpmGoToAlbum(BuildContext context, TrackItem t) async {
   if (!t.isYouTube) {
     final local = audioHandler.tracks.where((x) => !x.isYouTube && x.album == t.album).toList();
     if (local.isNotEmpty) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => RevivedPlaylistPage.custom(title: t.album, subtitle: t.artist, tracks: local)));
+      Navigator.of(context).push(_gpmActivityRoute(RevivedPlaylistPage.custom(title: t.album, subtitle: t.artist, tracks: local)));
     }
     return;
   }
@@ -150,9 +192,7 @@ Future<void> _gpmGoToAlbum(BuildContext context, TrackItem t) async {
     if (!context.mounted) return;
     final ref = links.albumBrowseId ?? links.albumUrl;
     if (ref != null && ref.isNotEmpty) {
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => RevivedAlbumPage(url: ref, initialTitle: links.albumTitle ?? t.album, initialThumb: links.albumThumbnail ?? t.artworkUrl),
-      ));
+      Navigator.of(context).push(_gpmActivityRoute(RevivedAlbumPage(url: ref, initialTitle: links.albumTitle ?? t.album, initialThumb: links.albumThumbnail ?? t.artworkUrl)));
     }
   } catch (_) {}
 }
@@ -252,7 +292,7 @@ class _RevivedSetupScreenState extends State<RevivedSetupScreen> {
   void _finish() {
     appState.setB('setup_done', true);
     appState.setStr('home_mode', 'youtube');
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const AlexLmpRoot()));
+    Navigator.of(context).pushReplacement(_gpmActivityRoute(const AlexLmpRoot()));
   }
 
   @override
@@ -515,7 +555,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
   void _playList(List<TrackItem> list, int index) {
     if (list.isEmpty) return;
     audioHandler.playYouTubeList(list, index);
-    openPlayer(context);
+    _openGpmPlayer(context);
   }
 
   @override
@@ -584,7 +624,9 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                       isScrollable: true,
                       tabAlignment: TabAlignment.start,
                       indicatorColor: Colors.white,
-                      indicatorWeight: 2.5,
+                      indicatorWeight: 3.0,
+                      splashFactory: InkRipple.splashFactory,
+                      overlayColor: WidgetStateProperty.all(Colors.white.withOpacity(0.24)),
                       labelColor: Colors.white,
                       unselectedLabelColor: Colors.white.withOpacity(0.80),
                       labelStyle: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, letterSpacing: 0.4),
@@ -742,17 +784,13 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                 _gpmSquareCard(
                   title: 'Last added',
                   cover: lastAdded.isNotEmpty ? _gpmArt(lastAdded.first) : _gpmMosaicPlaceholder(),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => RevivedPlaylistPage.custom(title: 'Last added', subtitle: '${lastAdded.length} songs', tracks: lastAdded),
-                  )),
+                  onTap: () => Navigator.of(context).push(_gpmActivityRoute(RevivedPlaylistPage.custom(title: 'Last added', subtitle: '${lastAdded.length} songs', tracks: lastAdded))),
                   onPlay: () => _playList(lastAdded, 0),
                 ),
                 _gpmSquareCard(
                   title: 'Thumbs up',
                   cover: _memLikedPage?.tracks.isNotEmpty == true ? _gpmArt(_memLikedPage!.tracks.first) : _gpmMosaicPlaceholder(),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const RevivedPlaylistPage.youtube(playlistId: 'LM', title: 'Thumbs up'),
-                  )),
+                  onTap: () => Navigator.of(context).push(_gpmActivityRoute(const RevivedPlaylistPage.youtube(playlistId: 'LM', title: 'Thumbs up'))),
                   onPlay: () {
                     final list = _memLikedPage?.tracks ?? const <TrackItem>[];
                     if (list.isNotEmpty) _playList(list, 0);
@@ -777,7 +815,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                     _gpmSquareCard(
                       title: pl.name,
                       cover: _gpmMosaicPlaceholder(),
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RevivedPlaylistPage.local(playlist: pl))),
+                      onTap: () => Navigator.of(context).push(_gpmActivityRoute(RevivedPlaylistPage.local(playlist: pl))),
                       onPlay: () {
                         final list = pl.trackIds.map(audioHandler.trackById).whereType<TrackItem>().toList();
                         _playList(list, 0);
@@ -787,12 +825,8 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                     _gpmSquareCard(
                       title: ypl.title,
                       cover: _gpmNetArt(ypl.thumbnail),
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => RevivedPlaylistPage.youtube(playlistId: ypl.playlistId, title: ypl.title, thumbnail: ypl.thumbnail),
-                      )),
-                      onPlay: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => RevivedPlaylistPage.youtube(playlistId: ypl.playlistId, title: ypl.title, thumbnail: ypl.thumbnail),
-                      )),
+                      onTap: () => Navigator.of(context).push(_gpmActivityRoute(RevivedPlaylistPage.youtube(playlistId: ypl.playlistId, title: ypl.title, thumbnail: ypl.thumbnail))),
+                      onPlay: () => Navigator.of(context).push(_gpmActivityRoute(RevivedPlaylistPage.youtube(playlistId: ypl.playlistId, title: ypl.title, thumbnail: ypl.thumbnail))),
                     ),
                 ],
               ),
@@ -823,9 +857,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
           cover: e.value.first.artworkUrl != null ? _gpmArt(e.value.first) : _gpmPlaceholder(iconSize: 38, isArtist: true),
           aspectRatio: 1.45,
           showMore: false,
-          onTap: () => Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => RevivedPlaylistPage.custom(title: e.key, subtitle: '${e.value.length} songs', tracks: e.value),
-          )),
+          onTap: () => Navigator.of(context).push(_gpmActivityRoute(RevivedPlaylistPage.custom(title: e.key, subtitle: '${e.value.length} songs', tracks: e.value))),
           onPlay: () => _playList(e.value, 0),
         );
       },
@@ -852,9 +884,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
           title: e.key,
           cover: _gpmArt(e.value.first),
           badgeIcon: isPlayingAlbum ? Icons.equalizer_rounded : Icons.play_arrow,
-          onTap: () => Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => RevivedPlaylistPage.custom(title: e.key, subtitle: e.value.first.artist, tracks: e.value),
-          )),
+          onTap: () => Navigator.of(context).push(_gpmActivityRoute(RevivedPlaylistPage.custom(title: e.key, subtitle: e.value.first.artist, tracks: e.value))),
           onPlay: () => _playList(e.value, 0),
         );
       },
@@ -960,22 +990,22 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                         cover: _gpmNetArt(it.thumbnail, isArtist: it.kind == 'artist'),
                         onTap: () {
                           if (it.kind == 'album') {
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => RevivedAlbumPage(url: it.id, initialTitle: it.title, initialThumb: it.thumbnail)));
+                            Navigator.of(context).push(_gpmActivityRoute(RevivedAlbumPage(url: it.id, initialTitle: it.title, initialThumb: it.thumbnail)));
                           } else if (it.kind == 'artist') {
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => RevivedArtistPage(url: it.id, name: it.title, initialThumb: it.thumbnail)));
+                            Navigator.of(context).push(_gpmActivityRoute(RevivedArtistPage(url: it.id, name: it.title, initialThumb: it.thumbnail)));
                           } else if (it.kind == 'playlist') {
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => RevivedPlaylistPage.youtube(playlistId: it.id, title: it.title, thumbnail: it.thumbnail)));
+                            Navigator.of(context).push(_gpmActivityRoute(RevivedPlaylistPage.youtube(playlistId: it.id, title: it.title, thumbnail: it.thumbnail)));
                           } else {
                             audioHandler.playYouTubeTrack(YouTubeMusic.trackFromShelf(it, it.subtitle));
-                            openPlayer(context);
+                            _openGpmPlayer(context);
                           }
                         },
                         onPlay: () {
                           if (it.kind == 'song' || it.kind == 'video') {
                             audioHandler.playYouTubeTrack(YouTubeMusic.trackFromShelf(it, it.subtitle));
-                            openPlayer(context);
+                            _openGpmPlayer(context);
                           } else if (it.kind == 'album') {
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => RevivedAlbumPage(url: it.id, initialTitle: it.title, initialThumb: it.thumbnail)));
+                            Navigator.of(context).push(_gpmActivityRoute(RevivedAlbumPage(url: it.id, initialTitle: it.title, initialThumb: it.thumbnail)));
                           }
                         },
                       ),
@@ -1011,7 +1041,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                 leading: SizedBox(width: 46, height: 46, child: _gpmNetArt(a.thumbnail, size: 46, isArtist: true)),
                 title: Text(a.name, style: const TextStyle(color: _gpmText, fontWeight: FontWeight.w500)),
                 subtitle: const Text('Artist', style: TextStyle(color: _gpmSub)),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RevivedArtistPage(url: a.url, name: a.name, initialThumb: a.thumbnail))),
+                onTap: () => Navigator.of(context).push(_gpmActivityRoute(RevivedArtistPage(url: a.url, name: a.name, initialThumb: a.thumbnail))),
               ),
             ),
           const SizedBox(height: 8),
@@ -1021,7 +1051,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
           for (final t in _songRes.take(10))
             _gpmSongCardRow(t, () {
               audioHandler.playYouTubeTrack(t);
-              openPlayer(context);
+              _openGpmPlayer(context);
             }),
         ],
         if (_albumRes.isNotEmpty) ...[
@@ -1038,8 +1068,8 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
                 _gpmSquareCard(
                   title: al.title,
                   cover: _gpmNetArt(al.thumbnail),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RevivedAlbumPage(url: al.url, initialTitle: al.title, initialThumb: al.thumbnail))),
-                  onPlay: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => RevivedAlbumPage(url: al.url, initialTitle: al.title, initialThumb: al.thumbnail))),
+                  onTap: () => Navigator.of(context).push(_gpmActivityRoute(RevivedAlbumPage(url: al.url, initialTitle: al.title, initialThumb: al.thumbnail))),
+                  onPlay: () => Navigator.of(context).push(_gpmActivityRoute(RevivedAlbumPage(url: al.url, initialTitle: al.title, initialThumb: al.thumbnail))),
                 ),
             ],
           ),
@@ -1058,15 +1088,17 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
     bool showMore = true,
     IconData badgeIcon = Icons.play_arrow,
   }) =>
-      GestureDetector(
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            color: _gpmWhite,
-            borderRadius: BorderRadius.circular(2),
-            boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 3, offset: Offset(0, 1.5))],
-          ),
-          clipBehavior: Clip.antiAlias,
+      Material(
+        color: _gpmWhite,
+        elevation: 2.0,
+        shadowColor: const Color(0x44000000),
+        borderRadius: BorderRadius.circular(2),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          splashFactory: InkRipple.splashFactory,
+          splashColor: _gpmOrange.withOpacity(0.18),
+          highlightColor: Colors.black.withOpacity(0.06),
+          onTap: onTap,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1142,7 +1174,7 @@ class _RevivedAppShellState extends State<RevivedAppShell> with SingleTickerProv
     return GestureDetector(
       onTap: () => openPlayer(context),
       onVerticalDragEnd: (d) {
-        if ((d.primaryVelocity ?? 0) < -250) openPlayer(context);
+        if ((d.primaryVelocity ?? 0) < -250) _openGpmPlayer(context);
       },
       child: Container(
         decoration: const BoxDecoration(
@@ -1201,6 +1233,9 @@ class RevivedPlayerScreen extends StatefulWidget {
 }
 
 class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
+  double _dragY = 0.0;
+  bool _dragging = false;
+
   @override
   void initState() {
     super.initState();
@@ -1217,20 +1252,43 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
     super.dispose();
   }
 
+  void _onDragUpdate(DragUpdateDetails d) {
+    if (d.delta.dy < 0 && _dragY <= 0) return;
+    setState(() {
+      _dragging = true;
+      _dragY = (_dragY + d.delta.dy).clamp(0.0, 640.0);
+    });
+  }
+
+  void _onDragEnd(DragEndDetails d) {
+    if (_dragY > 130 || (d.primaryVelocity ?? 0) > 550) {
+      Navigator.of(context).pop();
+    } else {
+      setState(() {
+        _dragging = false;
+        _dragY = 0.0;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final track = audioHandler.currentTrack;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(statusBarColor: _gpmOrangeDark, statusBarIconBrightness: Brightness.light),
       child: Scaffold(
-        backgroundColor: _gpmWhite,
+        backgroundColor: Colors.transparent,
         body: track == null
-            ? const Center(child: Text('Nothing playing', style: TextStyle(color: _gpmSub)))
+            ? const ColoredBox(color: _gpmWhite, child: Center(child: Text('Nothing playing', style: TextStyle(color: _gpmSub))))
             : GestureDetector(
-                onVerticalDragEnd: (d) {
-                  if ((d.primaryVelocity ?? 0) > 450) Navigator.of(context).pop();
-                },
-                child: Column(
+                onVerticalDragUpdate: _onDragUpdate,
+                onVerticalDragEnd: _onDragEnd,
+                child: AnimatedContainer(
+                  duration: Duration(milliseconds: _dragging ? 0 : 240),
+                  curve: Curves.fastOutSlowIn,
+                  transform: Matrix4.translationValues(0.0, _dragY, 0.0),
+                  color: _gpmWhite,
+                  child: Column(
                   children: [
                     // Status bar orange band
                     Container(height: MediaQuery.of(context).padding.top, color: _gpmOrangeDark),
@@ -1277,7 +1335,11 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          _gpmArt(track),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 280),
+                            layoutBuilder: (cur, prev) => Stack(fit: StackFit.expand, children: [...prev, if (cur != null) cur]),
+                            child: KeyedSubtree(key: ValueKey(track.id), child: _gpmArt(track)),
+                          ),
                           Positioned(
                             left: 0,
                             right: 0,
@@ -1382,24 +1444,42 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                             children: [
                                               IconButton(
-                                                icon: Icon(liked ? Icons.thumb_up : Icons.thumb_up_off_alt, color: liked ? _gpmOrange : _gpmText, size: 24),
-                                                onPressed: () => appState.toggleLike(track.id),
+                                                icon: AnimatedScale(
+                                                  scale: liked ? 1.18 : 1.0,
+                                                  duration: const Duration(milliseconds: 220),
+                                                  curve: Curves.easeOutBack,
+                                                  child: Icon(liked ? Icons.thumb_up : Icons.thumb_up_off_alt, color: liked ? _gpmOrange : _gpmText, size: 24),
+                                                ),
+                                                onPressed: () {
+                                                  HapticFeedback.lightImpact();
+                                                  appState.toggleLike(track.id);
+                                                },
                                               ),
                                               IconButton(
                                                 icon: const Icon(Icons.skip_previous, color: _gpmText, size: 30),
                                                 onPressed: () => audioHandler.skipToPrevious(),
                                               ),
-                                              GestureDetector(
-                                                onTap: () => playing ? audioHandler.pause() : audioHandler.play(),
-                                                child: Container(
-                                                  width: 56,
-                                                  height: 56,
-                                                  decoration: const BoxDecoration(
-                                                    color: _gpmOrange,
-                                                    shape: BoxShape.circle,
-                                                    boxShadow: [BoxShadow(color: Color(0x33000000), blurRadius: 6, offset: Offset(0, 3))],
+                                              Material(
+                                                color: _gpmOrange,
+                                                elevation: 4,
+                                                shape: const CircleBorder(),
+                                                clipBehavior: Clip.antiAlias,
+                                                child: InkWell(
+                                                  splashFactory: InkRipple.splashFactory,
+                                                  splashColor: Colors.white38,
+                                                  onTap: () {
+                                                    HapticFeedback.lightImpact();
+                                                    playing ? audioHandler.pause() : audioHandler.play();
+                                                  },
+                                                  child: SizedBox(
+                                                    width: 56,
+                                                    height: 56,
+                                                    child: AnimatedSwitcher(
+                                                      duration: const Duration(milliseconds: 180),
+                                                      transitionBuilder: (c, a) => ScaleTransition(scale: a, child: FadeTransition(opacity: a, child: c)),
+                                                      child: Icon(playing ? Icons.pause : Icons.play_arrow, key: ValueKey(playing), color: Colors.white, size: 32),
+                                                    ),
                                                   ),
-                                                  child: Icon(playing ? Icons.pause : Icons.play_arrow, color: Colors.white, size: 32),
                                                 ),
                                               ),
                                               IconButton(
@@ -1426,7 +1506,8 @@ class _RevivedPlayerScreenState extends State<RevivedPlayerScreen> {
                         );
                       },
                     ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
       ),
@@ -1541,7 +1622,7 @@ class _RevivedAlbumPageState extends State<RevivedAlbumPage> {
                             onPressed: () {
                               if (page.tracks.isEmpty) return;
                               audioHandler.playYouTubeList(page.tracks, 0, lockToScope: true);
-                              openPlayer(context);
+                              _openGpmPlayer(context);
                             },
                           ),
                         ],
@@ -1561,7 +1642,7 @@ class _RevivedAlbumPageState extends State<RevivedAlbumPage> {
                     trailing: IconButton(icon: const Icon(Icons.more_vert, color: _gpmSub), onPressed: () => showPlayMusicTrackMenu(context, page.tracks[i])),
                     onTap: () {
                       audioHandler.playYouTubeList(page.tracks, i, lockToScope: true);
-                      openPlayer(context);
+                      _openGpmPlayer(context);
                     },
                   ),
                 ),
@@ -1625,7 +1706,7 @@ class _RevivedArtistPageState extends State<RevivedArtistPage> {
                       onPressed: () {
                         if (page.songs.isEmpty) return;
                         audioHandler.playYouTubeList(page.songs, 0, lockToScope: true);
-                        openPlayer(context);
+                        _openGpmPlayer(context);
                       },
                     ),
                   ],
@@ -1642,7 +1723,7 @@ class _RevivedArtistPageState extends State<RevivedArtistPage> {
                     trailing: IconButton(icon: const Icon(Icons.more_vert, color: _gpmSub), onPressed: () => showPlayMusicTrackMenu(context, page.songs[i])),
                     onTap: () {
                       audioHandler.playYouTubeList(page.songs, i, lockToScope: true);
-                      openPlayer(context);
+                      _openGpmPlayer(context);
                     },
                   ),
                 ),
@@ -1727,7 +1808,7 @@ class _RevivedPlaylistPageState extends State<RevivedPlaylistPage> {
                 if (tracks.isEmpty) return;
                 audioHandler.setShuffleMode(AudioServiceShuffleMode.all);
                 audioHandler.playYouTubeList(tracks, Random().nextInt(tracks.length));
-                openPlayer(context);
+                _openGpmPlayer(context);
               },
             ),
           ],
@@ -1738,7 +1819,7 @@ class _RevivedPlaylistPageState extends State<RevivedPlaylistPage> {
           onPressed: () {
             if (tracks.isEmpty) return;
             audioHandler.playYouTubeList(tracks, 0);
-            openPlayer(context);
+            _openGpmPlayer(context);
           },
           child: const Icon(Icons.play_arrow, size: 30),
         ),
@@ -1756,7 +1837,7 @@ class _RevivedPlaylistPageState extends State<RevivedPlaylistPage> {
                 trailing: IconButton(icon: const Icon(Icons.more_vert, color: _gpmSub), onPressed: () => showPlayMusicTrackMenu(context, t)),
                 onTap: () {
                   audioHandler.playYouTubeList(tracks, i);
-                  openPlayer(context);
+                  _openGpmPlayer(context);
                 },
               ),
             );
@@ -1769,7 +1850,7 @@ class _RevivedPlaylistPageState extends State<RevivedPlaylistPage> {
 // 5. MUSIC SETTINGS (Exact Match to 32.png!)
 // ═════════════════════════════════════════════════════════════════════════════
 void openRevivedSettings(BuildContext context) {
-  Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RevivedSettingsScreen()));
+  Navigator.of(context).push(_gpmActivityRoute(const RevivedSettingsScreen()));
 }
 
 class RevivedSettingsScreen extends StatelessWidget {
@@ -1853,7 +1934,7 @@ class RevivedSettingsScreen extends StatelessWidget {
                 title: const Text('Re-run setup', style: TextStyle(color: _gpmText, fontSize: 15.5)),
                 onTap: () {
                   appState.setB('setup_done', false);
-                  Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const RevivedSetupScreen()), (_) => false);
+                  Navigator.of(context).pushAndRemoveUntil(_gpmActivityRoute(const RevivedSetupScreen()), (_) => false);
                 },
               ),
             ],
