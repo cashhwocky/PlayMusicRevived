@@ -1946,7 +1946,25 @@ class _RevivedPlaylistPageState extends State<RevivedPlaylistPage> {
           title: Text(name),
           actions: [
           IconButton(
-            icon: const Icon(Icons.download_for_offline_outlined, color: Colors.white),
+            icon: Builder(
+              builder: (_) {
+                final done = tracks.isNotEmpty && tracks.every(OfflineStore.isDownloaded);
+                return Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: done ? Colors.white : Colors.transparent,
+                    border: Border.all(color: Colors.white, width: 1.6),
+                  ),
+                  child: Icon(
+                    Icons.file_download,
+                    size: 16,
+                    color: done ? _gpmOrange : Colors.white,
+                  ),
+                );
+              },
+            ),
             tooltip: 'Download playlist',
             onPressed: () {
               if (tracks.isEmpty) return;
